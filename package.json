@@ -6,8 +6,8 @@
   "main": "src/index.js",
   "scripts": {
     "lint": "eslint --fix .",
-    "bundle:android": "bare-pack --platform android --linked --out src/vault-android.bundle src/main.js",
-    "bundle:ios": "bare-pack --platform ios --linked --out src/vault-ios.bundle src/main.js",
+    "bundle:android": "bare-pack -p android --linked --out src/vault-android.bundle src/main.js",
+    "bundle:ios": "bare-pack -p ios --linked --out src/vault-ios.bundle src/main.js",
     "bundle-bare": "npm run bundle:android && npm run bundle:ios"
   },
   "devDependencies": {
@@ -17,6 +17,10 @@
     "standard": "^17.1.2"
   },
   "dependencies": {
+    "bare-buffer": "^3.0.2",
+    "bare-fs": "^4.0.1",
+    "bare-os": "^3.4.0",
+    "bare-path": "^3.0.0",
     "bare-rpc": "^0.1.4",
     "expo-asset": "^11.0.3",
     "expo-file-system": "^18.0.10",
