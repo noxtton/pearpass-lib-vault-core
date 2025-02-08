@@ -1,3 +1,5 @@
+341
+{"version":0,"id":"95b9d60ade0cf9944ee3b43686890a5d6ba7564b65cead42102cb011f014580a","main":"/src/main.js","imports":{},"resolutions":{"/package.json":{},"/src/main.js":{"#package":"/package.json"}},"addons":[],"assets":[],"files":{"/package.json":{"offset":0,"length":737,"mode":420},"/src/main.js":{"offset":737,"length":36,"mode":420}}}
 {
   "name": "pearpass-lib-vault-bare",
   "version": "0.0.1",
@@ -15,14 +17,6 @@
     "pearpass-eslint-config": "github:noxtton/pearpass-eslint-config#v0.0.4",
     "pearpass-lib-vault": "github:noxtton/pearpass-lib-vault#v0.0.10",
     "standard": "^17.1.2"
-  },
-  "dependencies": {
-    "bare-rpc": "^0.1.4",
-    "expo-asset": "^11.0.3",
-    "expo-file-system": "^18.0.10",
-    "react-native-bare-kit": "^0.4.6"
-  },
-  "peerDependencies": {
-    "react-native": "0.76.5"
   }
 }
+export * from 'pearpass-lib-vault'

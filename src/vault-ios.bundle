@@ -1,3 +1,5 @@
+341
+{"version":0,"id":"98828db2eaac2b451c5b3c989cd0ef02b88adc2bb31034d34222081e4890a9b4","main":"/src/main.js","imports":{},"resolutions":{"/package.json":{},"/src/main.js":{"#package":"/package.json"}},"addons":[],"assets":[],"files":{"/package.json":{"offset":0,"length":958,"mode":420},"/src/main.js":{"offset":958,"length":36,"mode":420}}}
 {
   "name": "pearpass-lib-vault-bare",
   "version": "0.0.1",
@@ -26,3 +28,4 @@
     "react-native": "0.76.5"
   }
 }
+export * from 'pearpass-lib-vault'
