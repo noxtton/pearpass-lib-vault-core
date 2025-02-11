@@ -1,5 +1,42 @@
-343
-{"version":0,"id":"6a3b2f5ff0c2e634d50f5bd8ecb216e30bd5e1983b18ac08b2e9f77e3a7f8a73","main":"/src/main.js","imports":{},"resolutions":{"/package.json":{},"/src/main.js":{"#package":"/package.json"}},"addons":[],"assets":[],"files":{"/package.json":{"offset":0,"length":1052,"mode":420},"/src/main.js":{"offset":1052,"length":36,"mode":420}}}
+751
+{"version":0,"id":"64a8fa576f6f73b8ae954ec157e416a9bf137c4f9e2820b362768622e4d2100a","main":"/src/main.cjs","imports":{},"resolutions":{"/node_modules/pearpass-lib-vault/package.json":{},"/node_modules/pearpass-lib-vault/src/index.js":{"#package":"/node_modules/pearpass-lib-vault/package.json"},"/package.json":{},"/src/main.cjs":{"#package":"/package.json","pearpass-lib-vault":"/node_modules/pearpass-lib-vault/src/index.js"}},"addons":[],"assets":[],"files":{"/node_modules/pearpass-lib-vault/package.json":{"offset":0,"length":583,"mode":420},"/node_modules/pearpass-lib-vault/src/index.js":{"offset":583,"length":685,"mode":420},"/package.json":{"offset":1268,"length":1022,"mode":420},"/src/main.cjs":{"offset":2290,"length":480,"mode":420}}}
+{
+  "name": "pearpass-lib-vault",
+  "version": "0.0.10",
+  "type": "module",
+  "description": "A library for vault management",
+  "main": "src/index.js",
+  "scripts": {
+    "lint": "eslint --fix ."
+  },
+  "peerDependencies": {
+    "@reduxjs/toolkit": "^2.5.0",
+    "pearpass-lib-validator": "github:noxtton/pearpass-lib-validator#v0.0.2",
+    "react-redux": "^9.1.2"
+  },
+  "devDependencies": {
+    "pearpass-eslint-config": "github:noxtton/pearpass-eslint-config#v0.0.3",
+    "standard": "^17.1.2"
+  },
+  "dependencies": {
+    "autopass": "^1.0.2",
+    "corestore": "^6.18.4"
+  }
+}
+export { RECORD_TYPES } from './constants/recordTypes.js'
+
+export { useCreateFolder } from './hooks/useCreateFolder.js'
+export { useCreateRecord } from './hooks/useCreateRecord.js'
+export { useCreateVault } from './hooks/useCreateVault.js'
+export { useDeleteRecord } from './hooks/useDeleteRecord.js'
+export { useFolders } from './hooks/useFolders.js'
+export { useRecordById } from './hooks/useRecordById.js'
+export { useRecordCountsByType } from './hooks/useRecordCountsByType.js'
+export { useRecords } from './hooks/useRecords.js'
+export { useUpdateRecord } from './hooks/useUpdateRecord.js'
+export { useVault } from './hooks/useVault.js'
+
+export { VaultProvider } from './store.js'
 {
   "name": "pearpass-lib-vault-bare",
   "version": "0.0.1",
@@ -8,14 +45,14 @@
   "main": "src/index.js",
   "scripts": {
     "lint": "eslint --fix .",
-    "bundle:android": "bare-pack -p android --linked --out src/vault-android.bundle src/main.js",
-    "bundle:ios": "bare-pack -p ios --linked --out src/vault-ios.bundle src/main.js",
+    "bundle:android": "bare-pack -p android --linked --out src/vault-android.bundle src/main.cjs",
+    "bundle:ios": "bare-pack -p ios --linked --out src/vault-ios.bundle src/main.cjs",
     "bundle-bare": "npm run bundle:android && npm run bundle:ios"
   },
   "devDependencies": {
     "bare-pack": "^1.2.4",
     "pearpass-eslint-config": "github:noxtton/pearpass-eslint-config#v0.0.4",
-    "pearpass-lib-vault": "github:noxtton/pearpass-lib-vault#v0.0.10",
+    "pearpass-lib-vault": "github:noxtton/pearpass-lib-vault#v0.0.11",
     "standard": "^17.1.2"
   },
   "dependencies": {
@@ -32,4 +69,32 @@
     "react-native": "0.76.5"
   }
 }
-export * from 'pearpass-lib-vault'
+const {
+  RECORD_TYPES,
+  useCreateFolder,
+  useCreateRecord,
+  useCreateVault,
+  useDeleteRecord,
+  useFolders,
+  useRecordById,
+  useRecordCountsByType,
+  useRecords,
+  useUpdateRecord,
+  useVault,
+  VaultProvider
+} = require('pearpass-lib-vault')
+
+module.exports = {
+  VaultProvider,
+  RECORD_TYPES,
+  useCreateFolder,
+  useCreateRecord,
+  useCreateVault,
+  useDeleteRecord,
+  useFolders,
+  useRecordById,
+  useRecordCountsByType,
+  useRecords,
+  useUpdateRecord,
+  useVault
+}
