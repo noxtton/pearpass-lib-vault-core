@@ -15,7 +15,6 @@
     "bare-pack": "^1.2.4",
     "esbuild": "^0.25.0",
     "pearpass-eslint-config": "github:noxtton/pearpass-eslint-config#v0.0.4",
-    "pearpass-lib-vault": "github:noxtton/pearpass-lib-vault#v0.0.10",
     "standard": "^17.1.2"
   },
   "dependencies": {
@@ -26,6 +25,7 @@
     "bare-rpc": "^0.1.4",
     "expo-asset": "^11.0.3",
     "expo-file-system": "^18.0.10",
+    "pearpass-lib-vault": "github:noxtton/pearpass-lib-vault#v0.0.11",
     "react-native-bare-kit": "^0.4.6"
   },
   "peerDependencies": {
