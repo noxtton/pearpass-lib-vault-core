@@ -5,93 +5,75 @@ import { Worklet } from 'react-native-bare-kit'
 
 const RPC = require('bare-rpc')
 
-const noReply = () => {
-  // No reply
-}
-
-export let rpc = null
+const worklet = new Worklet()
+export let rpcRef = null
 export let fileUri = null
 export let directoryPath = null
 export let rpcReady = false
 
-async function initWorklet(callback = noReply) {
-  try {
-    // Create a new worklet instance
-    const worklet = new Worklet()
+function noReply() {}
 
-    if (!worklet) {
-      throw new Error(
-        'Failed to initialize Worklet - constructor returned null'
-      )
-    }
-
-    console.log('Initializing worklet', worklet)
-
-    // Helper function to ensure a directory exists
-    async function ensureDirectoryExist(dirPath) {
-      const dirInfo = await FileSystem.getInfoAsync(dirPath)
-      if (!dirInfo.exists) {
-        await FileSystem.makeDirectoryAsync(dirPath, { intermediates: true })
-      }
-    }
-
-    // Set up the file system directory
-    async function loadFileSystem() {
-      const coreStorePath = FileSystem.documentDirectory
-      if (!coreStorePath) {
-        throw new Error('documentDirectory is null')
-      }
-      await ensureDirectoryExist(coreStorePath)
-      directoryPath = coreStorePath
-    }
-
-    // Load the appropriate asset based on the platform
-    async function loadAssetByPlatform() {
-      const assetByPlatform = Platform.select({
-        ios: require('./vault-ios.bundle'),
-        android: require('./vault-android.bundle')
-      })
-
-      if (!assetByPlatform) {
-        throw new Error('Bundle asset not found for platform')
-      }
-
-      const [asset] = await Asset.loadAsync([assetByPlatform])
-      if (!asset?.localUri) {
-        throw new Error('Failed to load asset bundle')
-      }
-      fileUri = asset.localUri
-    }
-
-    // Run the initialization steps sequentially
-    await loadFileSystem()
-    await loadAssetByPlatform()
-
-    // Start the worklet with the obtained file URI
-    if (!fileUri) {
-      throw new Error('fileUri is null')
-    }
-
-    await worklet.start(fileUri)
-
-    // Initialize the RPC instance
-    if (!worklet.IPC) {
-      throw new Error('Worklet IPC is null')
-    }
-
-    if (!rpc) {
-      rpc = new RPC(worklet.IPC, callback)
-      rpcReady = true
-    }
-
-    console.log('Worklet initialized successfully')
-  } catch (error) {
-    console.error('Failed to initialize worklet:', error)
-    throw error
+async function ensureDirectoryExist(dirPath) {
+  const dirInfo = await FileSystem.getInfoAsync(dirPath)
+  if (!dirInfo.exists) {
+    await FileSystem.makeDirectoryAsync(dirPath, { intermediates: true })
   }
 }
 
-// Add error handling to the initial call
-initWorklet().catch((error) => {
-  console.error('Initial worklet initialization failed:', error)
-})
+async function loadFileSystem() {
+  const coreStorePath = `${FileSystem.documentDirectory}weights/`
+  await ensureDirectoryExist(coreStorePath)
+  directoryPath = coreStorePath
+}
+
+async function loadAssetByPlatform() {
+  const assetByPlatform = Platform.select({
+    ios: require('./vault-ios.bundle'),
+    android: require('./vault-android.bundle')
+  })
+
+  const assets = await Asset.loadAsync([assetByPlatform])
+  fileUri = assets[0].localUri
+}
+
+async function initWorklet(callback = noReply) {
+  try {
+    await loadFileSystem()
+    await loadAssetByPlatform()
+
+    if (!fileUri) {
+      throw new Error('File URI is not available.')
+    }
+
+    console.log('worklet.start', worklet.start)
+
+    await worklet.start(
+      fileUri,
+      Platform.select({
+        ios: require('./vault-ios.bundle'),
+        android: require('./vault-android.bundle')
+      })
+    )
+
+    if (!rpcRef) {
+      rpcRef = new RPC(worklet.IPC, callback)
+      rpcReady = true
+    }
+
+    console.log('Worklet initialized. RPC ready:', rpcReady)
+  } catch (error) {
+    console.error('Error initializing worklet:', error)
+  }
+}
+
+initWorklet()
+
+function getWorkletData() {
+  return {
+    rpc: rpcRef,
+    rpcReady: rpcReady,
+    directoryPath: directoryPath
+  }
+}
+
+console.log('Current worklet data:', getWorkletData())

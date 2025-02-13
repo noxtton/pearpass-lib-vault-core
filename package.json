@@ -6,12 +6,14 @@
   "main": "src/index.js",
   "scripts": {
     "lint": "eslint --fix .",
-    "bundle:android": "bare-pack -p android --linked --out src/vault-android.bundle src/main.js",
+    "bundle:android": "bare-pack --format bundle.cjs -p android --linked --out src/vault-android.bundle src/main.js",
     "bundle:ios": "bare-pack -p ios --linked --out src/vault-ios.bundle src/main.js",
-    "bundle-bare": "npm run bundle:android && npm run bundle:ios"
+    "bundle-bare": "npm run bundle:android && npm run bundle:ios",
+    "build": "esbuild src/main.js --bundle --platform=node --format=cjs --outfile=dist/index.js --external:@reduxjs/toolkit --external:react-redux --external:pearpass-lib-validator --external:autopass --external:corestore"
   },
   "devDependencies": {
     "bare-pack": "^1.2.4",
+    "esbuild": "^0.25.0",
     "pearpass-eslint-config": "github:noxtton/pearpass-eslint-config#v0.0.4",
     "pearpass-lib-vault": "github:noxtton/pearpass-lib-vault#v0.0.10",
     "standard": "^17.1.2"
