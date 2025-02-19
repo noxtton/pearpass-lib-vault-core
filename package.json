@@ -26,7 +26,8 @@
     "expo-asset": "=11.0.3",
     "expo-file-system": "=18.0.10",
     "pearpass-lib-vault": "github:noxtton/pearpass-lib-vault#bare-refactor",
-    "react-native-bare-kit": "=0.4.6"
+    "react-native-bare-kit": "=0.4.6",
+    "sodium-native": "^4.3.2"
   },
   "peerDependencies": {
     "react-native": "0.76.5"
