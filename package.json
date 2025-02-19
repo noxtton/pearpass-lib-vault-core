@@ -11,15 +11,14 @@
     "bundle-bare": "npm run bundle:android && npm run bundle:ios"
   },
   "devDependencies": {
-    "bare-pack": "=1.2.4",
-    "pearpass-eslint-config": "github:noxtton/pearpass-eslint-config#v0.0.4",
-    "standard": "=17.1.2"
+    "pearpass-eslint-config": "github:noxtton/pearpass-eslint-config#v0.0.4"
   },
   "dependencies": {
     "autopass": "=2.0.0",
     "bare-buffer": "=3.0.2",
     "bare-fs": "=4.0.1",
     "bare-os": "=3.4.0",
+    "bare-pack": "=1.2.4",
     "bare-path": "=3.0.0",
     "bare-rpc": "=0.1.4",
     "corestore": "=6.18.4",
