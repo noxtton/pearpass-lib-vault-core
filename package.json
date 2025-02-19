@@ -6,8 +6,8 @@
   "main": "src/index.js",
   "scripts": {
     "lint": "eslint --fix .",
-    "bundle:android": "bare-pack -p android --linked --out src/autopass-android.bundle src/main.js",
-    "bundle:ios": "bare-pack -p ios --linked --out src/autopass-ios.bundle src/main.js",
+    "bundle:android": "bare-pack -p android --linked --out bundles/autopass-android.bundle src/worklet/app.js",
+    "bundle:ios": "bare-pack -p ios --linked --out bundles/autopass-ios.bundle src/worklet/app.js",
     "bundle-bare": "npm run bundle:android && npm run bundle:ios"
   },
   "devDependencies": {
@@ -25,7 +25,7 @@
     "corestore": "^6.18.4",
     "expo-asset": "^11.0.3",
     "expo-file-system": "^18.0.10",
-    "pearpass-lib-vault": "github:noxtton/pearpass-lib-vault#v0.0.13",
+    "pearpass-lib-vault": "github:noxtton/pearpass-lib-vault#bare-refactor",
     "react-native-bare-kit": "^0.4.6"
   },
   "peerDependencies": {
