@@ -10,19 +10,12 @@ import { VaultManager } from './vaultManager'
 const worklet = new Worklet()
 
 export let fileUri = null
-export let directoryPath = null
 
 const ensureDirectoryExist = async (dirPath) => {
   const dirInfo = await FileSystem.getInfoAsync(dirPath)
   if (!dirInfo.exists) {
     await FileSystem.makeDirectoryAsync(dirPath, { intermediates: true })
   }
-}
-
-const loadFileSystem = async () => {
-  const coreStorePath = `${FileSystem.documentDirectory}weights/`
-  await ensureDirectoryExist(coreStorePath)
-  directoryPath = coreStorePath
 }
 
 const loadAssetByPlatform = async () => {
@@ -37,8 +30,6 @@ const loadAssetByPlatform = async () => {
 
 const initWorklet = async () => {
   try {
-    // await loadFileSystem()
-
     await loadAssetByPlatform()
 
     if (!fileUri) {
@@ -58,5 +49,9 @@ export const initPearpass = async () => {
 
   setVaultManager(new VaultManager(rpc))
 
-  setStoragePath(`${FileSystem.documentDirectory}pearpass/`)
+  const path = `${FileSystem.documentDirectory}pearpass`
+
+  await ensureDirectoryExist(path)
+
+  setStoragePath(path)
 }

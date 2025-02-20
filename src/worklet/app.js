@@ -63,7 +63,9 @@ const buildPath = (path) => {
     throw new Error('Storage path not set')
   }
 
-  return STORAGE_PATH + '/' + path
+  const fullPath = STORAGE_PATH + '/' + path
+
+  return fullPath.substring('file://'.length, fullPath.length)
 }
 
 /**
@@ -94,7 +96,9 @@ const initActiveVaultInstance = async (id) => {
  * @returns {Promise<Autopass>}
  */
 const initInstance = async (path) => {
-  const store = new Corestore(buildPath(path))
+  const fullPath = buildPath(path)
+
+  const store = new Corestore(fullPath)
 
   if (!store) {
     throw new Error('Error creating store')
@@ -213,7 +217,6 @@ const activeVaultget = async (key) => {
 
 export const rpc = new RPC(BareKit.IPC, async (req) => {
   const data = req?.data ? JSON.parse(req?.data) : undefined
-  console.log('data', req.command)
 
   switch (req.command) {
     case STORAGE_PATH_SET:

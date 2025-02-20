@@ -21,7 +21,7 @@
     "bare-pack": "=1.2.4",
     "bare-path": "=3.0.0",
     "bare-rpc": "=0.1.4",
-    "corestore": "=6.18.4",
+    "corestore": "^7.0.6",
     "expo-asset": "=11.0.3",
     "expo-file-system": "=18.0.10",
     "pearpass-lib-vault": "github:noxtton/pearpass-lib-vault#bare-refactor",
