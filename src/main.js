@@ -18,6 +18,44 @@ const ensureDirectoryExist = async (dirPath) => {
   }
 }
 
+const clearDocumentDirectory = async () => {
+  try {
+    const files = await FileSystem.readDirectoryAsync(
+      FileSystem.documentDirectory
+    )
+
+    await Promise.all(
+      files.map((file) =>
+        FileSystem.deleteAsync(`${FileSystem.documentDirectory}${file}`, {
+          idempotent: true,
+          recursive: true
+        })
+      )
+    )
+    console.log('Document directory cleared!')
+  } catch (error) {
+    console.error('Error clearing document directory:', error)
+  }
+}
+
+const checkExistingFiles = async () => {
+  try {
+    const files = await FileSystem.readDirectoryAsync(
+      `${FileSystem.documentDirectory}pearpass`
+    )
+
+    const vaultFiles = await FileSystem.readDirectoryAsync(
+      `${FileSystem.documentDirectory}pearpass/vault`
+    )
+
+    console.log('All files: ', files)
+
+    console.log('Existing vaults:', vaultFiles)
+  } catch (error) {
+    console.error('Error checking file exists:', error)
+  }
+}
+
 const loadAssetByPlatform = async () => {
   const assetByPlatform = Platform.select({
     ios: require('../bundles/autopass-ios.bundle'),

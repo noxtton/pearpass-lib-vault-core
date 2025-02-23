@@ -1,11 +1,13 @@
 import {
   ACTIVE_VAULT_ADD,
   ACTIVE_VAULT_CLOSE,
+  ACTIVE_VAULT_CREATE_INVITE,
   ACTIVE_VAULT_GET,
   ACTIVE_VAULT_GET_STATUS,
   ACTIVE_VAULT_INIT,
   ACTIVE_VAULT_LIST,
   ACTIVE_VAULT_REMOVE,
+  PAIR,
   STORAGE_PATH_SET,
   VAULTS_ADD,
   VAULTS_CLOSE,
@@ -43,11 +45,21 @@ export class VaultManager {
 
       await req.send()
 
-      await req.reply('utf8')
+      const res = await req.reply('utf8')
 
-      console.log('Vaults initialized')
+      const parsedRes = JSON.parse(res)
+
+      if (parsedRes.error) {
+        throw new Error(parsedRes.error)
+      }
+
+      console.log('Vaults initialized', res)
     } catch (error) {
       console.error('Error initializing vaults:', error)
+
+      if (error.message.includes('ELOCKED')) {
+        throw new Error('ELOCKED')
+      }
     }
   }
 
@@ -76,24 +88,24 @@ export class VaultManager {
 
       await req.send()
 
-      console.log('Vaults closed')
+      const res = await req.reply('utf8')
 
-      await req.reply('utf8')
+      console.log('Vaults closed', res)
     } catch (error) {
       console.error('Error closing vaults:', error)
     }
   }
 
-  async vaultsAdd(vault) {
+  async vaultsAdd(key, vault) {
     try {
       const req = this.rpc.request(VAULTS_ADD)
 
-      console.log('Adding vault:', vault)
+      console.log('Adding vault data in vaults:', { key, data: vault })
 
-      await req.send(JSON.stringify({ vault }))
+      await req.send(JSON.stringify({ key, data: vault }))
 
       await req.reply('utf8')
-      console.log('Vault added:', vault)
+      console.log('Vault added:', { key, data: vault })
     } catch (error) {
       console.error('Error adding vault:', error)
     }
@@ -111,7 +123,9 @@ export class VaultManager {
 
       console.log('Vaults listed:', res)
 
-      return JSON.parse(res)
+      const parsedRes = JSON.parse(res)
+
+      return parsedRes.data
     } catch (error) {
       console.error('Error listing vaults:', error)
     }
@@ -213,7 +227,9 @@ export class VaultManager {
 
       console.log('Active vault listed:', res)
 
-      return JSON.parse(res)
+      const parsedRes = JSON.parse(res)
+
+      return parsedRes.data
     } catch (error) {
       console.error('Error listing active vault:', error)
     }
@@ -231,9 +247,51 @@ export class VaultManager {
 
       console.log('Active vault:', res)
 
-      return JSON.parse(res)
+      const parsedRed = JSON.parse(res)
+
+      return parsedRed.data
     } catch (error) {
       console.error('Error getting active vault:', error)
+    }
+  }
+
+  async activeVaultCreateInvite(vaultId) {
+    try {
+      const req = this.rpc.request(ACTIVE_VAULT_CREATE_INVITE)
+
+      console.log('Creating invite...')
+
+      await req.send({ vaultId })
+
+      const res = await req.reply('utf8')
+
+      console.log('Invite created:', res)
+
+      const parsedRes = JSON.parse(res)
+
+      return parsedRes.data
+    } catch (error) {
+      console.error('Error creating invite:', error)
+    }
+  }
+
+  async pair(inviteCode) {
+    try {
+      const req = this.rpc.request(PAIR)
+
+      console.log('Pairing with invite code:', inviteCode)
+
+      await req.send({ inviteCode })
+
+      const res = await req.reply('utf8')
+
+      console.log('Paired:', res)
+
+      const parsedRes = JSON.parse(res)
+
+      return parsedRes.data
+    } catch (error) {
+      console.error('Error pairing:', error)
     }
   }
 }

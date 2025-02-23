@@ -2,7 +2,10 @@
   "version": "v1",
   "packages": {
     "pearpass-lib-vault": {
-      "signature": "c004c6227fcfc80950e3381cec3df235"
+      "signature": "5d1671c89b0e395b97f3331f00a16f2e"
+    },
+    "pearpass-lib-vault-bare": {
+      "signature": "d5b3528d7538d8f2604458ba0678939c"
     }
   }
 }

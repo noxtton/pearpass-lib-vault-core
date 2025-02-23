@@ -15,7 +15,9 @@ import {
   ACTIVE_VAULT_LIST,
   ACTIVE_VAULT_GET,
   VAULTS_GET_STATUS,
-  ACTIVE_VAULT_GET_STATUS
+  ACTIVE_VAULT_GET_STATUS,
+  ACTIVE_VAULT_CREATE_INVITE,
+  PAIR
 } from './api'
 
 let STORAGE_PATH = null
@@ -25,6 +27,49 @@ let isVaultsInitialized = false
 
 let activeVaultInstance
 let isActiveVaultInitialized = false
+
+/**
+ * @param {string} path
+ * @returns {Promise<Autopass>}
+ */
+export const pairInstance = async (path, invite) => {
+  const fullPath = buildPath(path)
+
+  const store = new Corestore(fullPath)
+
+  if (!store) {
+    throw new Error('Error creating store')
+  }
+
+  const pair = Autopass.pair(store, invite)
+
+  const instance = await pair.finished()
+
+  await instance.ready()
+
+  await instance.close()
+}
+
+/**
+ * @returns {Promise<void>}
+ */
+const closeActiveVaultInstance = async () => {
+  await activeVaultInstance.close()
+
+  activeVaultInstance = null
+  isActiveVaultInitialized = false
+}
+
+/**
+ * @param {string} vaultId
+ * @param {string} inviteKey
+ * @returns {Promise<{id: string}>}
+ */
+export const pairActiveVaultInstance = async (vaultId, inviteKey) => {
+  await closeActiveVaultInstance()
+
+  await pairInstance(`vault/${vaultId}`, inviteKey)
+}
 
 /**
  *
@@ -69,29 +114,6 @@ const buildPath = (path) => {
 }
 
 /**
- * @returns {Promise<void>}
- */
-const closeActiveVaultInstance = async () => {
-  await activeVaultInstance?.close?.()
-
-  isActiveVaultInitialized = false
-}
-
-/**
- * @param {string} id
- * @returns {Promise<Autopass>}
- */
-const initActiveVaultInstance = async (id) => {
-  isActiveVaultInitialized = false
-
-  activeVaultInstance = await initInstance(`vault/${id}`)
-
-  isActiveVaultInitialized = true
-
-  return activeVaultInstance
-}
-
-/**
  * @param {string} path
  * @returns {Promise<Autopass>}
  */
@@ -112,6 +134,20 @@ const initInstance = async (path) => {
 }
 
 /**
+ * @param {string} id
+ * @returns {Promise<Autopass>}
+ */
+const initActiveVaultInstance = async (id) => {
+  isActiveVaultInitialized = false
+
+  activeVaultInstance = await initInstance(`vault/${id}`)
+
+  isActiveVaultInitialized = true
+
+  return activeVaultInstance
+}
+
+/**
  * @param {string} path
  * @returns {Promise<void>}
  */
@@ -127,7 +163,10 @@ const vaultsInit = async () => {
  * @returns {Promise<void>}
  */
 const closeVaultsInstance = async () => {
-  await vaultsInstance?.close?.()
+  await vaultsInstance.close()
+
+  vaultsInstance = null
+  isVaultsInitialized = false
 }
 
 /**
@@ -149,12 +188,12 @@ const activeVaultAdd = async (key, data) => {
  * @param {any} vault
  * @returns {Promise<void>}
  */
-export const vaultAdd = async (vault) => {
+export const vaultsAdd = async (key, vault) => {
   if (!isVaultsInitialized) {
     throw new Error('Vault not initialised')
   }
 
-  await activeVaultInstance.add(`vault`, vault)
+  await vaultsInstance.add(key, vault)
 }
 
 /**
@@ -207,12 +246,42 @@ const activeVaultList = async (filterKey) => {
  * @param {string} key
  * @returns {Promise<void>}
  */
-const activeVaultget = async (key) => {
+const activeVaultGet = async (key) => {
   if (!isActiveVaultInitialized) {
     throw new Error('Vault not initialised')
   }
 
-  await activeVaultInstance.get(key)
+  const res = await activeVaultInstance.get(key)
+
+  return res
+}
+
+/**
+ * @param {string} vaultId
+ * @returns {Promise<string>}
+ */
+export const createInvite = async (vaultId) => {
+  const inviteCode = await activeVaultInstance.createInvite()
+
+  return `${vaultId}/${inviteCode}`
+}
+
+/**
+ * @param {string} inviteCode
+ * @returns {Promise<void>}
+ */
+export const pair = async (inviteCode) => {
+  const [vaultId, inviteKey] = inviteCode.split('/')
+
+  await pairActiveVaultInstance(vaultId, inviteKey)
+
+  await initActiveVaultInstance(vaultId)
+
+  const vault = await activeVaultInstance.get('vault')
+
+  await vaultsInstance.add(`vault/${vaultId}`, vault)
+
+  return vault
 }
 
 export const rpc = new RPC(BareKit.IPC, async (req) => {
@@ -232,7 +301,11 @@ export const rpc = new RPC(BareKit.IPC, async (req) => {
 
         req.reply(JSON.stringify({ success: true }))
       } catch (error) {
-        console.error('Error initializing vaults:', error)
+        req.reply(
+          JSON.stringify({
+            error: `Error initializing vaults: ${error}`
+          })
+        )
       }
 
       break
@@ -248,18 +321,26 @@ export const rpc = new RPC(BareKit.IPC, async (req) => {
 
         req.reply(JSON.stringify({ success: true }))
       } catch (error) {
-        console.error('Error closing vaults:', error)
+        req.reply(
+          JSON.stringify({
+            error: `Error closing vaults: ${error}`
+          })
+        )
       }
 
       break
 
     case VAULTS_ADD:
       try {
-        await vaultAdd(data?.vault)
+        await vaultsAdd(data?.key, data?.data)
 
         req.reply(JSON.stringify({ success: true }))
       } catch (error) {
-        console.error('Error adding vault:', error)
+        req.reply(
+          JSON.stringify({
+            error: `Error adding vault: ${error}`
+          })
+        )
       }
 
       break
@@ -268,9 +349,13 @@ export const rpc = new RPC(BareKit.IPC, async (req) => {
       try {
         const vaults = await vaultsList(data?.filterKey)
 
-        req.reply(JSON.stringify({ vaults }))
+        req.reply(JSON.stringify({ data: vaults }))
       } catch (error) {
-        console.error('Error listing vaults:', error)
+        req.reply(
+          JSON.stringify({
+            error: `Error listing vaults: ${error}`
+          })
+        )
       }
 
       break
@@ -281,7 +366,11 @@ export const rpc = new RPC(BareKit.IPC, async (req) => {
 
         req.reply(JSON.stringify({ success: true }))
       } catch (error) {
-        console.error('Error initializing active vault:', error)
+        req.reply(
+          JSON.stringify({
+            error: `Error initializing active vault: ${error}`
+          })
+        )
       }
 
       break
@@ -297,7 +386,11 @@ export const rpc = new RPC(BareKit.IPC, async (req) => {
 
         req.reply(JSON.stringify({ success: true }))
       } catch (error) {
-        console.error('Error closing active vault:', error)
+        req.reply(
+          JSON.stringify({
+            error: `Error closing active vault: ${error}`
+          })
+        )
       }
 
       break
@@ -308,7 +401,11 @@ export const rpc = new RPC(BareKit.IPC, async (req) => {
 
         req.reply(JSON.stringify({ success: true }))
       } catch (error) {
-        console.error('Error adding record to active vault:', error)
+        req.reply(
+          JSON.stringify({
+            error: `Error adding record to active vault: ${error}`
+          })
+        )
       }
 
       break
@@ -319,29 +416,75 @@ export const rpc = new RPC(BareKit.IPC, async (req) => {
 
         req.reply(JSON.stringify({ success: true }))
       } catch (error) {
-        console.error('Error removing record from active vault:', error)
+        req.reply(
+          JSON.stringify({
+            error: `Error removing record from active vault: ${error}`
+          })
+        )
       }
 
       break
 
     case ACTIVE_VAULT_LIST:
       try {
-        const data = await activeVaultList(data?.filterKey)
+        const res = await activeVaultList(data?.filterKey)
 
-        req.reply(JSON.stringify({ data }))
+        req.reply(JSON.stringify({ data: res }))
       } catch (error) {
-        console.error('Error listing records from active vault:', error)
+        req.reply(
+          JSON.stringify({
+            error: `Error listing records from active vault: ${error}`
+          })
+        )
       }
 
       break
 
     case ACTIVE_VAULT_GET:
       try {
-        const data = await activeVaultget(data?.key)
+        const res = await activeVaultGet(data?.key)
 
-        req.reply(JSON.stringify({ data }))
+        req.reply(JSON.stringify({ data: res }))
       } catch (error) {
-        console.error('Error getting records from active vault:', error)
+        req.reply(
+          JSON.stringify({
+            error: `Error getting records from active vault: ${error}`
+          })
+        )
+      }
+
+      break
+
+    case ACTIVE_VAULT_CREATE_INVITE:
+      try {
+        const vaultId = data.vaultId
+
+        const invite = await createInvite(vaultId)
+
+        req.reply(JSON.stringify({ data: invite }))
+      } catch (error) {
+        req.reply(
+          JSON.stringify({
+            error: `Error creating invite from active vault: ${error}`
+          })
+        )
+      }
+
+      break
+
+    case PAIR:
+      try {
+        const inviteCode = data.inviteCode
+
+        const vault = await pair(inviteCode)
+
+        req.reply(JSON.stringify({ data: vault }))
+      } catch (error) {
+        req.reply(
+          JSON.stringify({
+            error: `Error pairing with invite code: ${error}`
+          })
+        )
       }
 
       break
