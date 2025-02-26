@@ -200,12 +200,12 @@ export const vaultsAdd = async (key, vault) => {
  * @param {string} recordId
  * @returns {Promise<void>}
  */
-const vaultRemove = async (recordId) => {
+const vaultRemove = async (key) => {
   if (!isActiveVaultInitialized) {
     throw new Error('Vault not initialised')
   }
 
-  await activeVaultInstance.remove(`record/${recordId}`)
+  await activeVaultInstance.remove(key)
 }
 
 /**
@@ -412,7 +412,7 @@ export const rpc = new RPC(BareKit.IPC, async (req) => {
 
     case ACTIVE_VAULT_REMOVE:
       try {
-        await vaultRemove(data?.recordId)
+        await vaultRemove(data?.key)
 
         req.reply(JSON.stringify({ success: true }))
       } catch (error) {

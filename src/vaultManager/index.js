@@ -215,13 +215,13 @@ export class VaultManager {
     }
   }
 
-  async activeVaultList() {
+  async activeVaultList(filterKey) {
     try {
       const req = this.rpc.request(ACTIVE_VAULT_LIST)
 
       console.log('Listing active vault...')
 
-      await req.send()
+      await req.send(JSON.stringify({ filterKey }))
 
       const res = await req.reply('utf8')
 
