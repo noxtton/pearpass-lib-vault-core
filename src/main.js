@@ -91,5 +91,5 @@ export const initPearpass = async () => {
 
   await ensureDirectoryExist(path)
 
-  setStoragePath(path)
+  await setStoragePath(path)
 }
