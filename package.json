@@ -24,7 +24,7 @@
     "corestore": "^6.18.4",
     "expo-asset": "=11.0.3",
     "expo-file-system": "=18.0.10",
-    "pearpass-lib-vault": "github:noxtton/pearpass-lib-vault#bare-refactor",
+    "pearpass-lib-vault": "github:noxtton/pearpass-lib-vault#v0.0.14",
     "react-native-bare-kit": "=0.4.6",
     "sodium-native": "^4.3.2"
   },
