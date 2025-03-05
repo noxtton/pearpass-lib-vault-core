@@ -1,3 +1,3 @@
 export * from 'pearpass-lib-vault'
 
-export { initPearpass } from './main'
+export { initPearpass, clearDocumentDirectory } from './main'
