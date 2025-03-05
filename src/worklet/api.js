@@ -16,3 +16,5 @@ export const ACTIVE_VAULT_GET = 'VAULTS_GET'
 export const ACTIVE_VAULT_CREATE_INVITE = 'ACTIVE_VAULT_CREATE_INVITE'
 
 export const PAIR = 'PAIR'
+export const INIT_LISTENER = 'INIT_LISTENER'
+export const ON_UPDATE = 'ON_UPDATE'

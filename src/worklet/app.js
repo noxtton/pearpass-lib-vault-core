@@ -17,7 +17,9 @@ import {
   VAULTS_GET_STATUS,
   ACTIVE_VAULT_GET_STATUS,
   ACTIVE_VAULT_CREATE_INVITE,
-  PAIR
+  PAIR,
+  INIT_LISTENER,
+  ON_UPDATE
 } from './api'
 
 let STORAGE_PATH = null
@@ -27,6 +29,8 @@ let isVaultsInitialized = false
 
 let activeVaultInstance
 let isActiveVaultInitialized = false
+
+let listeningVaultId = null
 
 /**
  * @param {string} path
@@ -66,7 +70,9 @@ const closeActiveVaultInstance = async () => {
  * @returns {Promise<{id: string}>}
  */
 export const pairActiveVaultInstance = async (vaultId, inviteKey) => {
-  await closeActiveVaultInstance()
+  if (isActiveVaultInitialized) {
+    await closeActiveVaultInstance()
+  }
 
   await pairInstance(`vault/${vaultId}`, inviteKey)
 }
@@ -257,11 +263,14 @@ const activeVaultGet = async (key) => {
 }
 
 /**
- * @param {string} vaultId
  * @returns {Promise<string>}
  */
-export const createInvite = async (vaultId) => {
+export const createInvite = async () => {
   const inviteCode = await activeVaultInstance.createInvite()
+
+  const vault = await activeVaultInstance.get('vault')
+
+  const vaultId = vault.id
 
   return `${vaultId}/${inviteCode}`
 }
@@ -282,6 +291,24 @@ export const pair = async (inviteCode) => {
   await vaultsInstance.add(`vault/${vaultId}`, vault)
 
   return vault
+}
+
+/**
+ * @param {{
+ *  vaultId: string
+ *   onUpdate: () => void
+ * }} options
+ */
+export const initListener = async ({ vaultId, onUpdate }) => {
+  if (vaultId === listeningVaultId) {
+    return
+  }
+
+  activeVaultInstance.on('update', () => {
+    onUpdate?.()
+  })
+
+  listeningVaultId = vaultId
 }
 
 export const rpc = new RPC(BareKit.IPC, async (req) => {
@@ -457,9 +484,7 @@ export const rpc = new RPC(BareKit.IPC, async (req) => {
 
     case ACTIVE_VAULT_CREATE_INVITE:
       try {
-        const vaultId = data.vaultId
-
-        const invite = await createInvite(vaultId)
+        const invite = await createInvite()
 
         req.reply(JSON.stringify({ data: invite }))
       } catch (error) {
@@ -483,6 +508,34 @@ export const rpc = new RPC(BareKit.IPC, async (req) => {
         req.reply(
           JSON.stringify({
             error: `Error pairing with invite code: ${error}`
+          })
+        )
+      }
+
+      break
+
+    case INIT_LISTENER:
+      try {
+        if (!isActiveVaultInitialized) {
+          throw new Error('Active vault not initialized')
+        }
+
+        const vaultId = data.vaultId
+
+        await initListener({
+          vaultId: vaultId,
+          onUpdate: () => {
+            const req = rpc.request(ON_UPDATE)
+
+            req.send()
+          }
+        })
+
+        req.reply(JSON.stringify({ success: true }))
+      } catch (error) {
+        req.reply(
+          JSON.stringify({
+            error: `Error initializing listener: ${error}`
           })
         )
       }

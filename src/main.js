@@ -1,4 +1,3 @@
-import RPC from 'bare-rpc'
 import { Asset } from 'expo-asset'
 import * as FileSystem from 'expo-file-system'
 import { setStoragePath, setVaultManager } from 'pearpass-lib-vault'
@@ -66,26 +65,16 @@ const loadAssetByPlatform = async () => {
   fileUri = assets[0].localUri
 }
 
-const initWorklet = async () => {
-  try {
-    await loadAssetByPlatform()
-
-    if (!fileUri) {
-      throw new Error('File URI is not available.')
-    }
-
-    await worklet.start(fileUri)
-
-    return new RPC(worklet.IPC, () => {})
-  } catch (error) {
-    console.error('Error initializing worklet:', error)
-  }
-}
-
 export const initPearpass = async () => {
-  const rpc = await initWorklet()
+  await loadAssetByPlatform()
 
-  setVaultManager(new VaultManager(rpc))
+  if (!fileUri) {
+    throw new Error('File URI is not available.')
+  }
+
+  await worklet.start(fileUri)
+
+  setVaultManager(new VaultManager(worklet))
 
   const path = `${FileSystem.documentDirectory}pearpass`
 

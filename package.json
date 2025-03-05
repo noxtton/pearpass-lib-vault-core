@@ -22,6 +22,7 @@
     "bare-path": "=3.0.0",
     "bare-rpc": "=0.1.4",
     "corestore": "^6.18.4",
+    "events": "^3.3.0",
     "expo-asset": "=11.0.3",
     "expo-file-system": "=18.0.10",
     "pearpass-lib-vault": "github:noxtton/pearpass-lib-vault#v0.0.15",

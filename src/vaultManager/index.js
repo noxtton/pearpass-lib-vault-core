@@ -1,3 +1,7 @@
+import EventEmitter from 'events'
+
+import RPC from 'bare-rpc'
+
 import {
   ACTIVE_VAULT_ADD,
   ACTIVE_VAULT_CLOSE,
@@ -7,6 +11,8 @@ import {
   ACTIVE_VAULT_INIT,
   ACTIVE_VAULT_LIST,
   ACTIVE_VAULT_REMOVE,
+  INIT_LISTENER,
+  ON_UPDATE,
   PAIR,
   STORAGE_PATH_SET,
   VAULTS_ADD,
@@ -16,9 +22,20 @@ import {
   VAULTS_LIST
 } from '../worklet/api'
 
-export class VaultManager {
-  constructor(rpc) {
-    this.rpc = rpc
+export class VaultManager extends EventEmitter {
+  constructor(worklet) {
+    super()
+
+    this.rpc = new RPC(worklet.IPC, (req) => {
+      const data = req?.data ? JSON.parse(req?.data) : undefined
+
+      switch (req.command) {
+        case ON_UPDATE:
+          this.emit('update', data)
+
+          break
+      }
+    })
   }
 
   async setStoragePath(path) {
@@ -255,13 +272,13 @@ export class VaultManager {
     }
   }
 
-  async activeVaultCreateInvite(vaultId) {
+  async activeVaultCreateInvite() {
     try {
       const req = this.rpc.request(ACTIVE_VAULT_CREATE_INVITE)
 
       console.log('Creating invite...')
 
-      await req.send({ vaultId })
+      await req.send()
 
       const res = await req.reply('utf8')
 
@@ -281,7 +298,7 @@ export class VaultManager {
 
       console.log('Pairing with invite code:', inviteCode)
 
-      await req.send({ inviteCode })
+      await req.send(JSON.stringify({ inviteCode }))
 
       const res = await req.reply('utf8')
 
@@ -290,6 +307,26 @@ export class VaultManager {
       const parsedRes = JSON.parse(res)
 
       return parsedRes.data
+    } catch (error) {
+      console.error('Error pairing:', error)
+    }
+  }
+
+  async initListener({ vaultId }) {
+    try {
+      const req = this.rpc.request(INIT_LISTENER)
+
+      console.log('Initializing listener:', vaultId)
+
+      await req.send(JSON.stringify({ vaultId }))
+
+      const res = await req.reply('utf8')
+
+      console.log('Paired:', res)
+
+      const parsedRes = JSON.parse(res)
+
+      return parsedRes.success
     } catch (error) {
       console.error('Error pairing:', error)
     }
