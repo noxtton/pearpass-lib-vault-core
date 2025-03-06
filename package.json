@@ -15,9 +15,9 @@
   },
   "dependencies": {
     "autopass": "^1.0.2",
-    "bare-buffer": "^3.0.2",
+    "bare-buffer": "^3.1.0",
     "bare-fs": "^4.0.1",
-    "bare-os": "^3.4.0",
+    "bare-os": "^3.5.1",
     "bare-pack": "^1.2.4",
     "bare-path": "^3.0.0",
     "bare-rpc": "^0.1.4",
@@ -26,8 +26,9 @@
     "expo-asset": "^11.0.3",
     "expo-file-system": "^18.0.10",
     "pearpass-lib-vault": "github:noxtton/pearpass-lib-vault#v0.0.16",
-    "react-native-bare-kit": "^0.4.6",
-    "sodium-native": "^4.3.2"
+    "react-native-bare-kit": "^0.5.3",
+    "sodium-native": "^4.3.3",
+    "udx-native": "^1.17.5"
   },
   "peerDependencies": {
     "react-native": "0.76.5"
