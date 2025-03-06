@@ -91,6 +91,7 @@ export class VaultManager extends EventEmitter {
       const res = await req.reply('utf8')
 
       console.log('Vaults status:', res)
+
       return JSON.parse(res)
     } catch (error) {
       console.error('Error getting vaults status:', error)
