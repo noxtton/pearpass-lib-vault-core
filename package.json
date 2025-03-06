@@ -15,7 +15,6 @@
   },
   "dependencies": {
     "autopass": "^1.0.2",
-    "bare-buffer": "^3.1.0",
     "bare-fs": "^4.0.1",
     "bare-os": "^3.5.1",
     "bare-pack": "^1.2.4",
