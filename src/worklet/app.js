@@ -58,6 +58,8 @@ export const pairInstance = async (path, invite) => {
  * @returns {Promise<void>}
  */
 const closeActiveVaultInstance = async () => {
+  activeVaultInstance.removeAllListeners()
+
   await activeVaultInstance.close()
 
   activeVaultInstance = null
@@ -303,6 +305,8 @@ export const initListener = async ({ vaultId, onUpdate }) => {
   if (vaultId === listeningVaultId) {
     return
   }
+
+  activeVaultInstance.removeAllListeners()
 
   activeVaultInstance.on('update', () => {
     onUpdate?.()
