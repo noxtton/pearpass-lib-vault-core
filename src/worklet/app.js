@@ -1,4 +1,5 @@
 import Autopass from 'autopass'
+import crypto from 'bare-crypto'
 import RPC from 'bare-rpc'
 import Corestore from 'corestore'
 
@@ -19,10 +20,17 @@ import {
   ACTIVE_VAULT_CREATE_INVITE,
   PAIR,
   INIT_LISTENER,
-  ON_UPDATE
+  ON_UPDATE,
+  ENCRYPTION_INIT,
+  ENCRYPTION_GET_STATUS,
+  ENCRYPTION_GET,
+  ENCRYPTION_ADD
 } from './api'
 
 let STORAGE_PATH = null
+
+let encryptionInstance
+let isEncryptionInitialized = false
 
 let vaultsInstance
 let isVaultsInitialized = false
@@ -31,6 +39,91 @@ let activeVaultInstance
 let isActiveVaultInitialized = false
 
 let listeningVaultId = null
+
+const pbkdf2Promise = (password, salt, iterations, keylen, digest) =>
+  new Promise((resolve, reject) => {
+    crypto.pbkdf2(
+      password,
+      salt,
+      iterations,
+      keylen,
+      digest,
+      (err, derivedKey) => {
+        if (err) reject(err)
+        else resolve(derivedKey)
+      }
+    )
+  })
+
+const iterations = 100000
+const keyLength = 32
+const digest = 'sha256'
+
+/**
+ *
+ * @param  {string} password
+ * @returns {Promise<{
+ *  salt: string
+ *  iv: string
+ *  tag: string
+ *  encryptedKey: string
+ * }>}
+ */
+export const encryptVaultKey = async (password) => {
+  const vaultKey = crypto.randomUUID()
+  const salt = crypto.randomBytes(16)
+  const derivedKey = await pbkdf2Promise(
+    password,
+    salt,
+    iterations,
+    keyLength,
+    digest
+  )
+  const iv = crypto.randomBytes(12) // AES-GCM IV
+  const cipher = crypto.createCipheriv('aes-256-gcm', derivedKey, iv)
+  let encrypted = cipher.update(vaultKey)
+  encrypted = Buffer.concat([encrypted, cipher.final()])
+  const tag = cipher.getAuthTag()
+
+  return {
+    salt: salt.toString('hex'),
+    iv: iv.toString('hex'),
+    tag: tag.toString('hex'),
+    encryptedKey: encrypted.toString('hex')
+  }
+}
+
+/**
+ * @param {string} password
+ * @param {{
+ *  salt: string
+ *  iv: string
+ *  tag: string
+ *  encryptedKey: string
+ * }} encryptionData
+ * @returns {Promise<Buffer>}
+ */
+export const decryptVaultKey = async (password, encryptionData) => {
+  const { salt, iv, tag, encryptedKey } = encryptionData
+
+  const derivedKey = await pbkdf2Promise(
+    password,
+    Buffer.from(salt, 'hex'),
+    iterations,
+    keyLength,
+    digest
+  )
+  const decipher = crypto.createDecipheriv(
+    'aes-256-gcm',
+    derivedKey,
+    Buffer.from(iv, 'hex')
+  )
+  decipher.setAuthTag(Buffer.from(tag, 'hex'))
+  let decrypted = decipher.update(Buffer.from(encryptedKey, 'hex'))
+  decrypted = Buffer.concat([decrypted, decipher.final()])
+
+  return decrypted
+}
 
 /**
  * @param {string} path
@@ -125,7 +218,7 @@ const buildPath = (path) => {
  * @param {string} path
  * @returns {Promise<Autopass>}
  */
-const initInstance = async (path) => {
+const initInstance = async (path, encryptionKey) => {
   const fullPath = buildPath(path)
 
   const store = new Corestore(fullPath)
@@ -134,7 +227,9 @@ const initInstance = async (path) => {
     throw new Error('Error creating store')
   }
 
-  const instance = new Autopass(store)
+  const instance = new Autopass(store, {
+    encryptionKey: encryptionKey
+  })
 
   await instance.ready()
 
@@ -156,15 +251,52 @@ const initActiveVaultInstance = async (id) => {
 }
 
 /**
- * @param {string} path
  * @returns {Promise<void>}
  */
-const vaultsInit = async () => {
+const vaultsInit = async (password) => {
   isVaultsInitialized = false
 
-  vaultsInstance = await initInstance('vaults')
+  vaultsInstance = await initInstance('vaults', password)
 
   isVaultsInitialized = true
+}
+
+/**
+ * @returns {Promise<void>}
+ */
+const encryptionInit = async () => {
+  isEncryptionInitialized = false
+
+  encryptionInstance = await initInstance('encryption')
+
+  isEncryptionInitialized = true
+}
+
+/**
+ * @param {string} key
+ * @returns {Promise<any>}
+ */
+const encryptionGet = async (key) => {
+  if (!isEncryptionInitialized) {
+    throw new Error('Encryption not initialised')
+  }
+
+  const res = await encryptionInstance.get(key)
+
+  return res
+}
+
+/**
+ * @param {string} key
+ * @param {any} data
+ * @returns {Promise<void>}
+ */
+const encryptionAdd = async (key, data) => {
+  if (!isEncryptionInitialized) {
+    throw new Error('Encryption not initialised')
+  }
+
+  await encryptionInstance.add(key, data)
 }
 
 /**
@@ -328,9 +460,13 @@ export const rpc = new RPC(BareKit.IPC, async (req) => {
 
     case VAULTS_INIT:
       try {
-        await vaultsInit()
+        if (!data.password) {
+          throw new Error('Password is required')
+        }
 
-        req.reply(JSON.stringify({ success: true }))
+        const res = await vaultsInit(data.password)
+
+        req.reply(JSON.stringify({ success: true, res }))
       } catch (error) {
         req.reply(
           JSON.stringify({
@@ -540,6 +676,56 @@ export const rpc = new RPC(BareKit.IPC, async (req) => {
         req.reply(
           JSON.stringify({
             error: `Error initializing listener: ${error}`
+          })
+        )
+      }
+
+      break
+
+    case ENCRYPTION_INIT:
+      try {
+        await encryptionInit('encryption')
+
+        req.reply(JSON.stringify({ success: true }))
+      } catch (error) {
+        req.reply(
+          JSON.stringify({
+            error: `Error initializing encryption: ${error}`
+          })
+        )
+      }
+
+      break
+
+    case ENCRYPTION_GET_STATUS:
+      req.reply(JSON.stringify({ status: isEncryptionInitialized }))
+
+      break
+
+    case ENCRYPTION_GET:
+      try {
+        const res = await encryptionGet(data?.key)
+
+        req.reply(JSON.stringify({ data: res }))
+      } catch (error) {
+        req.reply(
+          JSON.stringify({
+            error: `Error getting encryption data: ${error}`
+          })
+        )
+      }
+
+      break
+
+    case ENCRYPTION_ADD:
+      try {
+        await encryptionAdd(data?.key, data?.data)
+
+        req.reply(JSON.stringify({ success: true }))
+      } catch (error) {
+        req.reply(
+          JSON.stringify({
+            error: `Error adding encryption data: ${error}`
           })
         )
       }

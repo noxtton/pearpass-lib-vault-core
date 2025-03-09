@@ -1,6 +1,6 @@
 import { Asset } from 'expo-asset'
 import * as FileSystem from 'expo-file-system'
-import { setStoragePath, setVaultManager } from 'pearpass-lib-vault'
+import { setVaultManager } from 'pearpass-lib-vault'
 import { Platform } from 'react-native'
 import { Worklet } from 'react-native-bare-kit'
 
@@ -56,11 +56,9 @@ export const initPearpass = async () => {
 
   await worklet.start(fileUri)
 
-  setVaultManager(new VaultManager(worklet))
-
   const path = `${FileSystem.documentDirectory}pearpass`
 
   await ensureDirectoryExist(path)
 
-  await setStoragePath(path)
+  setVaultManager(new VaultManager(worklet, path))
 }

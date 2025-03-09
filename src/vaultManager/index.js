@@ -11,6 +11,10 @@ import {
   ACTIVE_VAULT_INIT,
   ACTIVE_VAULT_LIST,
   ACTIVE_VAULT_REMOVE,
+  ENCRYPTION_ADD,
+  ENCRYPTION_GET,
+  ENCRYPTION_GET_STATUS,
+  ENCRYPTION_INIT,
   INIT_LISTENER,
   ON_UPDATE,
   PAIR,
@@ -23,7 +27,7 @@ import {
 } from '../worklet/api'
 
 export class VaultManager extends EventEmitter {
-  constructor(worklet) {
+  constructor(worklet, storagePath) {
     super()
 
     this.rpc = new RPC(worklet.IPC, (req) => {
@@ -36,6 +40,10 @@ export class VaultManager extends EventEmitter {
           break
       }
     })
+
+    if (storagePath) {
+      this.setStoragePath(storagePath)
+    }
   }
 
   async setStoragePath(path) {
@@ -54,13 +62,18 @@ export class VaultManager extends EventEmitter {
     }
   }
 
-  async vaultsInit() {
+  async vaultsInit(password) {
     try {
       const req = this.rpc.request(VAULTS_INIT)
 
-      console.log('Initializing vaults...')
+      console.log('Initializing vaults...', password)
 
-      await req.send()
+      await req.send(
+        JSON.stringify({
+          password:
+            'a1b2c3d4e5f60718293a4b5c6d7e8f90123456789abcdef0123456789abcdef0123456789abcdef012345678'
+        })
+      )
 
       const res = await req.reply('utf8')
 
@@ -323,13 +336,87 @@ export class VaultManager extends EventEmitter {
 
       const res = await req.reply('utf8')
 
-      console.log('Paired:', res)
+      console.log('Listener initialized:', res)
 
       const parsedRes = JSON.parse(res)
 
       return parsedRes.success
     } catch (error) {
       console.error('Error pairing:', error)
+    }
+  }
+
+  async encryptionInit() {
+    try {
+      const req = this.rpc.request(ENCRYPTION_INIT)
+
+      console.log('Initializing encryption...')
+
+      await req.send()
+
+      const res = await req.reply('utf8')
+
+      console.log('Encryption initialized:', res)
+
+      const parsedRes = JSON.parse(res)
+
+      return parsedRes.success
+    } catch (error) {
+      console.error('Error initializing encryption:', error)
+    }
+  }
+
+  async encryptionGetStatus() {
+    try {
+      const req = this.rpc.request(ENCRYPTION_GET_STATUS)
+
+      console.log('Getting encryption status...')
+
+      await req.send()
+
+      const res = await req.reply('utf8')
+
+      console.log('Encryption status:', res)
+
+      return JSON.parse(res)
+    } catch (error) {
+      console.error('Error getting encryption status:', error)
+    }
+  }
+
+  async encryptionGet(key) {
+    try {
+      const req = this.rpc.request(ENCRYPTION_GET)
+
+      console.log('Getting encryption:', key)
+
+      await req.send(JSON.stringify({ key }))
+
+      const res = await req.reply('utf8')
+
+      console.log('Encryption:', res)
+
+      const parsedRes = JSON.parse(res)
+
+      return parsedRes.data
+    } catch (error) {
+      console.error('Error getting encryption:', error)
+    }
+  }
+
+  async encryptionAdd(key, data) {
+    try {
+      const req = this.rpc.request(ENCRYPTION_ADD)
+
+      console.log('Adding encryption:', key, data)
+
+      await req.send(JSON.stringify({ key, data }))
+
+      await req.reply('utf8')
+
+      console.log('Encryption added:', key, data)
+    } catch (error) {
+      console.error('Error adding encryption:', error)
     }
   }
 }
