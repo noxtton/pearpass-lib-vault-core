@@ -271,16 +271,6 @@ const vaultsInit = async (password) => {
   )
 
   isVaultsInitialized = true
-
-  // TEMPORARY FOR TESTING
-  const encryptionData = await encryptVaultKey(password)
-
-  const decriptedData = await decryptVaultKey(password, encryptionData)
-
-  return {
-    encryptionData,
-    decriptedData
-  }
 }
 
 /**
