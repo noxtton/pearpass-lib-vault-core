@@ -70,8 +70,7 @@ export class VaultManager extends EventEmitter {
 
       await req.send(
         JSON.stringify({
-          password:
-            'a1b2c3d4e5f60718293a4b5c6d7e8f90123456789abcdef0123456789abcdef0123456789abcdef012345678'
+          password: password
         })
       )
 

@@ -2,6 +2,7 @@ import Autopass from 'autopass'
 import crypto from 'bare-crypto'
 import RPC from 'bare-rpc'
 import Corestore from 'corestore'
+import sodium from 'sodium-native'
 
 import {
   ACTIVE_VAULT_CLOSE,
@@ -40,24 +41,8 @@ let isActiveVaultInitialized = false
 
 let listeningVaultId = null
 
-const pbkdf2Promise = (password, salt, iterations, keylen, digest) =>
-  new Promise((resolve, reject) => {
-    crypto.pbkdf2(
-      password,
-      salt,
-      iterations,
-      keylen,
-      digest,
-      (err, derivedKey) => {
-        if (err) reject(err)
-        else resolve(derivedKey)
-      }
-    )
-  })
-
 const iterations = 100000
 const keyLength = 32
-const digest = 'sha256'
 
 /**
  *
@@ -70,19 +55,32 @@ const digest = 'sha256'
  * }>}
  */
 export const encryptVaultKey = async (password) => {
-  const vaultKey = crypto.randomUUID()
+  const vaultKey = crypto.randomBytes(16).toString('hex')
+
   const salt = crypto.randomBytes(16)
-  const derivedKey = await pbkdf2Promise(
-    password,
+
+  const derivedKey = Buffer.alloc(keyLength)
+
+  const passwordBuffer = Buffer.isBuffer(password)
+    ? password
+    : Buffer.from(password)
+
+  await sodium.extension_pbkdf2_sha512(
+    derivedKey,
+    passwordBuffer,
     salt,
     iterations,
-    keyLength,
-    digest
+    keyLength
   )
+
   const iv = crypto.randomBytes(12) // AES-GCM IV
+
   const cipher = crypto.createCipheriv('aes-256-gcm', derivedKey, iv)
+
   let encrypted = cipher.update(vaultKey)
+
   encrypted = Buffer.concat([encrypted, cipher.final()])
+
   const tag = cipher.getAuthTag()
 
   return {
@@ -106,20 +104,30 @@ export const encryptVaultKey = async (password) => {
 export const decryptVaultKey = async (password, encryptionData) => {
   const { salt, iv, tag, encryptedKey } = encryptionData
 
-  const derivedKey = await pbkdf2Promise(
-    password,
+  const derivedKey = Buffer.alloc(keyLength)
+
+  const passwordBuffer = Buffer.isBuffer(password)
+    ? password
+    : Buffer.from(password)
+
+  await sodium.extension_pbkdf2_sha512(
+    derivedKey,
+    passwordBuffer,
     Buffer.from(salt, 'hex'),
     iterations,
-    keyLength,
-    digest
+    keyLength
   )
+
   const decipher = crypto.createDecipheriv(
     'aes-256-gcm',
     derivedKey,
     Buffer.from(iv, 'hex')
   )
+
   decipher.setAuthTag(Buffer.from(tag, 'hex'))
+
   let decrypted = decipher.update(Buffer.from(encryptedKey, 'hex'))
+
   decrypted = Buffer.concat([decrypted, decipher.final()])
 
   return decrypted
@@ -256,9 +264,23 @@ const initActiveVaultInstance = async (id) => {
 const vaultsInit = async (password) => {
   isVaultsInitialized = false
 
-  vaultsInstance = await initInstance('vaults', password)
+  vaultsInstance = await initInstance(
+    'vaults'
+    //  password
+    //'a1b2c3d4e5f60718293a4b5c6d7e8f90123456789abcdef0123456789abcdef0123456789abcdef012345678'
+  )
 
   isVaultsInitialized = true
+
+  // TEMPORARY FOR TESTING
+  const encryptionData = await encryptVaultKey(password)
+
+  const decriptedData = await decryptVaultKey(password, encryptionData)
+
+  return {
+    encryptionData,
+    decriptedData
+  }
 }
 
 /**
