@@ -12,6 +12,7 @@ import {
   ACTIVE_VAULT_LIST,
   ACTIVE_VAULT_REMOVE,
   ENCRYPTION_ADD,
+  ENCRYPTION_CLOSE,
   ENCRYPTION_GET,
   ENCRYPTION_GET_STATUS,
   ENCRYPTION_INIT,
@@ -416,6 +417,22 @@ export class VaultManager extends EventEmitter {
       console.log('Encryption added:', key, data)
     } catch (error) {
       console.error('Error adding encryption:', error)
+    }
+  }
+
+  async encryptionClose() {
+    try {
+      const req = this.rpc.request(ENCRYPTION_CLOSE)
+
+      console.log('Closing encryption...')
+
+      await req.send()
+
+      await req.reply('utf8')
+
+      console.log('Encryption closed')
+    } catch (error) {
+      console.error('Error closing encryption:', error)
     }
   }
 }

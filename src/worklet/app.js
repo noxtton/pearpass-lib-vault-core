@@ -25,7 +25,8 @@ import {
   ENCRYPTION_INIT,
   ENCRYPTION_GET_STATUS,
   ENCRYPTION_GET,
-  ENCRYPTION_ADD
+  ENCRYPTION_ADD,
+  ENCRYPTION_CLOSE
 } from './api'
 
 let STORAGE_PATH = null
@@ -309,6 +310,16 @@ const encryptionAdd = async (key, data) => {
   }
 
   await encryptionInstance.add(key, data)
+}
+
+/**
+ * @returns {Promise<void>}
+ */
+const encryptionClose = async () => {
+  await encryptionInstance.close()
+
+  encryptionInstance = null
+  isEncryptionInitialized = false
 }
 
 /**
@@ -744,6 +755,21 @@ export const rpc = new RPC(BareKit.IPC, async (req) => {
         req.reply(
           JSON.stringify({
             error: `Error adding encryption data: ${error}`
+          })
+        )
+      }
+
+      break
+
+    case ENCRYPTION_CLOSE:
+      try {
+        await encryptionClose()
+
+        req.reply(JSON.stringify({ success: true }))
+      } catch (error) {
+        req.reply(
+          JSON.stringify({
+            error: `Error closing encryption: ${error}`
           })
         )
       }
