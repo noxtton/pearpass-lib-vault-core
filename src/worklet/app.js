@@ -174,11 +174,9 @@ const closeActiveVaultInstance = async () => {
  */
 export const pairActiveVaultInstance = async (vaultId, inviteKey) => {
   if (isActiveVaultInitialized) {
-    rpcLog('Closing active vault instance')
     await closeActiveVaultInstance()
   }
 
-  rpcLog('Pairing active vault instance')
   await pairInstance(`vault/${vaultId}`, inviteKey)
 }
 
