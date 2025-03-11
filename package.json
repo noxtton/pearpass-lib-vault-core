@@ -25,7 +25,7 @@
     "events": "^3.3.0",
     "expo-asset": "^11.0.4",
     "expo-file-system": "^18.0.10",
-    "pearpass-lib-vault": "github:noxtton/pearpass-lib-vault#v0.0.22",
+    "pearpass-lib-vault": "github:noxtton/pearpass-lib-vault#v0.0.23",
     "react-native-bare-kit": "^0.5.3",
     "sodium-native": "^4.3.3",
     "udx-native": "^1.17.5"
