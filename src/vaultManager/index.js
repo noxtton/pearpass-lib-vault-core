@@ -31,13 +31,13 @@ export class VaultManager extends EventEmitter {
     super()
 
     this.rpc = new RPC(worklet.IPC, (req) => {
-      const data = req?.data ? JSON.parse(req?.data) : undefined
-
       switch (req.command) {
         case ON_UPDATE:
-          this.emit('update', data)
+          this.emit('update')
 
           break
+        default:
+          console.error('Unknown command:', req.command)
       }
     })
 

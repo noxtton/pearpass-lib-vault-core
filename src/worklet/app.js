@@ -174,9 +174,11 @@ const closeActiveVaultInstance = async () => {
  */
 export const pairActiveVaultInstance = async (vaultId, inviteKey) => {
   if (isActiveVaultInitialized) {
+    rpcLog('Closing active vault instance')
     await closeActiveVaultInstance()
   }
 
+  rpcLog('Pairing active vault instance')
   await pairInstance(`vault/${vaultId}`, inviteKey)
 }
 
@@ -457,6 +459,12 @@ export const initListener = async ({ vaultId, onUpdate }) => {
   })
 
   listeningVaultId = vaultId
+}
+
+const rpcLog = async (message) => {
+  const req = rpc.request(message)
+
+  await req.send()
 }
 
 export const rpc = new RPC(BareKit.IPC, async (req) => {
