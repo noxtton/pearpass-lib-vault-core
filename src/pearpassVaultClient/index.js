@@ -27,7 +27,7 @@ import {
   VAULTS_LIST
 } from '../worklet/api'
 
-export class VaultManager extends EventEmitter {
+export class PearpassVaultClient extends EventEmitter {
   constructor(worklet, storagePath) {
     super()
 
