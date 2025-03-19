@@ -10,9 +10,6 @@
     "bundle:ios": "bare-pack -p ios --linked --out bundles/autopass-ios.bundle src/worklet/app.js",
     "bundle-bare": "npm run bundle:android && npm run bundle:ios"
   },
-  "devDependencies": {
-    "pearpass-eslint-config": "github:noxtton/pearpass-eslint-config#v0.0.4"
-  },
   "dependencies": {
     "autopass": "^1.0.2",
     "bare-crypto": "^1.4.0",
@@ -31,5 +28,8 @@
     "bare-os": "^3.5.1",
     "react-native": "0.76.5",
     "react-native-bare-kit": "^0.5.3"
+  },
+  "devDependencies": {
+    "tether-dev-docs": "github:noxtton/tether-dev-docs#v0.0.2"
   }
 }
