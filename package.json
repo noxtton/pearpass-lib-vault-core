@@ -25,9 +25,9 @@
     "udx-native": "=1.17.5"
   },
   "peerDependencies": {
-    "bare-os": "=3.5.1",
+    "bare-os": "=3.6.0",
     "react-native": "0.76.5",
-    "react-native-bare-kit": "=0.5.3"
+    "react-native-bare-kit": "=0.6.1"
   },
   "devDependencies": {
     "tether-dev-docs": "github:noxtton/tether-dev-docs#v0.0.2"
