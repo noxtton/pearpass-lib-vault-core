@@ -6,6 +6,7 @@
   "main": "src/index.js",
   "scripts": {
     "lint": "eslint --fix .",
+    "test": "jest",
     "bundle:android": "bare-pack -p android --linked --out bundles/autopass-android.bundle src/worklet/app.js",
     "bundle:ios": "bare-pack -p ios --linked --out bundles/autopass-ios.bundle src/worklet/app.js",
     "bundle-bare": "npm run bundle:android && npm run bundle:ios"
@@ -30,6 +31,10 @@
     "react-native-bare-kit": "=0.5.6"
   },
   "devDependencies": {
-    "tether-dev-docs": "github:noxtton/tether-dev-docs#v0.0.2"
+    "@babel/core": "^7.26.10",
+    "@babel/preset-env": "^7.26.9",
+    "babel-jest": "^29.7.0",
+    "jest": "^29.7.0",
+    "tether-dev-docs": "github:noxtton/tether-dev-docs#v0.0.3"
   }
 }

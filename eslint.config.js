@@ -8,6 +8,9 @@ export default [
         BareKit: 'readonly'
       }
     },
+    rules: {
+      'no-underscore-dangle': 'off'
+    },
     ignores: ['dist']
   }
 ]
