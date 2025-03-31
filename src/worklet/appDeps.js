@@ -1,7 +1,5 @@
 import Autopass from 'autopass'
-import crypto from 'bare-crypto'
 import Corestore from 'corestore'
-import sodium from 'sodium-native'
 
 let STORAGE_PATH = null
 
@@ -15,9 +13,6 @@ let activeVaultInstance
 let isActiveVaultInitialized = false
 
 let listeningVaultId = null
-
-const iterations = 100000
-const keyLength = 32
 
 /**
  * @param {string} path
@@ -51,95 +46,6 @@ export const getActiveVaultInstance = () => activeVaultInstance
  * @returns {Autopass}
  **/
 export const getVaultsInstance = () => vaultsInstance
-
-/**
- *
- * @param  {string} password
- * @returns {Promise<{
- *  salt: string
- *  iv: string
- *  tag: string
- *  encryptedKey: string
- * }>}
- */
-export const encryptVaultKey = async (password) => {
-  const vaultKey = crypto.randomBytes(16).toString('hex')
-
-  const salt = crypto.randomBytes(16)
-
-  const derivedKey = Buffer.alloc(keyLength)
-
-  const passwordBuffer = Buffer.isBuffer(password)
-    ? password
-    : Buffer.from(password)
-
-  await sodium.extension_pbkdf2_sha512(
-    derivedKey,
-    passwordBuffer,
-    salt,
-    iterations,
-    keyLength
-  )
-
-  const iv = crypto.randomBytes(12) // AES-GCM IV
-
-  const cipher = crypto.createCipheriv('aes-256-gcm', derivedKey, iv)
-
-  let encrypted = cipher.update(vaultKey)
-
-  encrypted = Buffer.concat([encrypted, cipher.final()])
-
-  const tag = cipher.getAuthTag()
-
-  return {
-    salt: salt.toString('hex'),
-    iv: iv.toString('hex'),
-    tag: tag.toString('hex'),
-    encryptedKey: encrypted.toString('hex')
-  }
-}
-
-/**
- * @param {string} password
- * @param {{
- *  salt: string
- *  iv: string
- *  tag: string
- *  encryptedKey: string
- * }} encryptionData
- * @returns {Promise<Buffer>}
- */
-export const decryptVaultKey = async (password, encryptionData) => {
-  const { salt, iv, tag, encryptedKey } = encryptionData
-
-  const derivedKey = Buffer.alloc(keyLength)
-
-  const passwordBuffer = Buffer.isBuffer(password)
-    ? password
-    : Buffer.from(password)
-
-  await sodium.extension_pbkdf2_sha512(
-    derivedKey,
-    passwordBuffer,
-    Buffer.from(salt, 'hex'),
-    iterations,
-    keyLength
-  )
-
-  const decipher = crypto.createDecipheriv(
-    'aes-256-gcm',
-    derivedKey,
-    Buffer.from(iv, 'hex')
-  )
-
-  decipher.setAuthTag(Buffer.from(tag, 'hex'))
-
-  let decrypted = decipher.update(Buffer.from(encryptedKey, 'hex'))
-
-  decrypted = Buffer.concat([decrypted, decipher.final()])
-
-  return decrypted
-}
 
 /**
  * @param {string} path
@@ -232,6 +138,7 @@ export const buildPath = (path) => {
 
 /**
  * @param {string} path
+ * @param {string | undefined} encryptionKey
  * @returns {Promise<Autopass>}
  */
 export const initInstance = async (path, encryptionKey) => {
@@ -245,6 +152,8 @@ export const initInstance = async (path, encryptionKey) => {
 
   const instance = new Autopass(store, {
     encryptionKey: encryptionKey
+      ? Buffer.from(encryptionKey, 'base64')
+      : undefined
   })
 
   await instance.ready()
@@ -254,12 +163,13 @@ export const initInstance = async (path, encryptionKey) => {
 
 /**
  * @param {string} id
+ * @param {string | undefined} encryptionKey
  * @returns {Promise<Autopass>}
  */
-export const initActiveVaultInstance = async (id) => {
+export const initActiveVaultInstance = async (id, encryptionKey) => {
   isActiveVaultInitialized = false
 
-  activeVaultInstance = await initInstance(`vault/${id}`)
+  activeVaultInstance = await initInstance(`vault/${id}`, encryptionKey)
 
   isActiveVaultInitialized = true
 
@@ -267,16 +177,13 @@ export const initActiveVaultInstance = async (id) => {
 }
 
 /**
+ * @param {string | undefined} encryptionKey
  * @returns {Promise<void>}
  */
-export const vaultsInit = async (password) => {
+export const vaultsInit = async (encryptionKey) => {
   isVaultsInitialized = false
 
-  vaultsInstance = await initInstance(
-    'vaults'
-    //  password
-    //'a1b2c3d4e5f60718293a4b5c6d7e8f90123456789abcdef0123456789abcdef0123456789abcdef012345678'
-  )
+  vaultsInstance = await initInstance('vaults', encryptionKey)
 
   isVaultsInitialized = true
 }

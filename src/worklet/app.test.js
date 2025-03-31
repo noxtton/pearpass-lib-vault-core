@@ -19,7 +19,9 @@ import {
   ENCRYPTION_GET_STATUS,
   ENCRYPTION_GET,
   ENCRYPTION_ADD,
-  ENCRYPTION_CLOSE
+  ENCRYPTION_CLOSE,
+  ENCRYPTION_DECRYPT_VAULT_KEY,
+  ENCRYPTION_ENCRYPT_VAULT_KEY
 } from './api'
 import { handleRpcCommand } from './app'
 import {
@@ -42,6 +44,16 @@ import {
   encryptionAdd,
   getIsActiveVaultInitialized
 } from './appDeps'
+import { decryptVaultKey } from './decryptVaultKey'
+import { encryptVaultKey } from './encryptVaultKey'
+
+jest.mock('./decryptVaultKey', () => ({
+  decryptVaultKey: jest.fn()
+}))
+
+jest.mock('./encryptVaultKey', () => ({
+  encryptVaultKey: jest.fn()
+}))
 
 jest.mock('bare-rpc', () => {
   return jest.fn().mockImplementation((ipc, callback) => {
@@ -113,7 +125,7 @@ describe('RPC handler', () => {
 
   test('should handle VAULTS_INIT command with password', async () => {
     mockRequest.command = VAULTS_INIT
-    mockRequest.data = JSON.stringify({ password: 'testpassword' })
+    mockRequest.data = JSON.stringify({ encryptionKey: 'testpassword' })
 
     await handleRpcCommand(mockRequest)
 
@@ -187,11 +199,17 @@ describe('RPC handler', () => {
 
   test('should handle ACTIVE_VAULT_INIT command', async () => {
     mockRequest.command = ACTIVE_VAULT_INIT
-    mockRequest.data = JSON.stringify({ id: 'vault-id' })
+    mockRequest.data = JSON.stringify({
+      id: 'vault-id',
+      encryptionKey: 'testpassword'
+    })
 
     await handleRpcCommand(mockRequest)
 
-    expect(initActiveVaultInstance).toHaveBeenCalledWith('vault-id')
+    expect(initActiveVaultInstance).toHaveBeenCalledWith(
+      'vault-id',
+      'testpassword'
+    )
     expect(mockRequest.reply).toHaveBeenCalledWith(
       JSON.stringify({ success: true })
     )
@@ -382,6 +400,85 @@ describe('RPC handler', () => {
     expect(encryptionClose).toHaveBeenCalled()
     expect(mockRequest.reply).toHaveBeenCalledWith(
       JSON.stringify({ success: true })
+    )
+  })
+
+  test('should handle ENCRYPTION_ENCRYPT_VAULT_KEY command', async () => {
+    mockRequest.command = ENCRYPTION_ENCRYPT_VAULT_KEY
+    mockRequest.data = JSON.stringify({ password: 'testpassword' })
+
+    jest.mock('./encryptVaultKey', () => ({
+      encryptVaultKey: jest.fn().mockReturnValue('encrypted-key-data')
+    }))
+
+    encryptVaultKey.mockReturnValueOnce('encrypted-key-data')
+
+    await handleRpcCommand(mockRequest)
+
+    expect(encryptVaultKey).toHaveBeenCalledWith('testpassword')
+    expect(mockRequest.reply).toHaveBeenCalledWith(
+      JSON.stringify({ data: 'encrypted-key-data' })
+    )
+  })
+
+  test('should handle ENCRYPTION_DECRYPT_VAULT_KEY command', async () => {
+    mockRequest.command = ENCRYPTION_DECRYPT_VAULT_KEY
+    mockRequest.data = JSON.stringify({
+      encryptedKey: 'encrypted-data',
+      password: 'testpassword'
+    })
+
+    jest.mock('./decryptVaultKey', () => ({
+      decryptVaultKey: jest.fn().mockReturnValue('decrypted-key')
+    }))
+
+    decryptVaultKey.mockReturnValueOnce('decrypted-key')
+
+    await handleRpcCommand(mockRequest)
+
+    expect(decryptVaultKey).toHaveBeenCalledWith({
+      encryptedKey: 'encrypted-data',
+      password: 'testpassword'
+    })
+    expect(mockRequest.reply).toHaveBeenCalledWith(
+      JSON.stringify({ data: 'decrypted-key' })
+    )
+  })
+
+  test('should handle error in ENCRYPTION_ENCRYPT_VAULT_KEY command', async () => {
+    mockRequest.command = ENCRYPTION_ENCRYPT_VAULT_KEY
+    mockRequest.data = JSON.stringify({ password: 'testpassword' })
+
+    encryptVaultKey.mockImplementationOnce(() => {
+      throw new Error('Encryption failed')
+    })
+
+    await handleRpcCommand(mockRequest)
+
+    expect(mockRequest.reply).toHaveBeenCalledWith(
+      JSON.stringify({
+        error: 'Error encrypting vault key: Error: Encryption failed'
+      })
+    )
+  })
+
+  test('should handle error in ENCRYPTION_DECRYPT_VAULT_KEY command', async () => {
+    mockRequest.command = ENCRYPTION_DECRYPT_VAULT_KEY
+    mockRequest.data = JSON.stringify({
+      encryptedKey: 'encrypted-data',
+      password: 'testpassword'
+    })
+
+    decryptVaultKey.mockImplementationOnce(() => {
+      throw new Error('Decryption failed')
+    })
+
+    await handleRpcCommand(mockRequest)
+
+    expect(mockRequest.reply).toHaveBeenCalledWith(
+      JSON.stringify({
+        error: 'Error decrypting vault key: Error: Decryption failed'
+      })
     )
   })
 })

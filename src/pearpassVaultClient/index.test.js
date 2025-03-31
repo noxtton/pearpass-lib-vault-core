@@ -21,7 +21,8 @@ import {
   ENCRYPTION_GET,
   ENCRYPTION_ADD,
   ENCRYPTION_CLOSE,
-  ON_UPDATE
+  ON_UPDATE,
+  ENCRYPTION_ENCRYPT_VAULT_KEY
 } from '../worklet/api'
 
 jest.mock('bare-rpc', () => {
@@ -64,7 +65,7 @@ describe('PearpassVaultClient', () => {
 
   describe('vaultsInit', () => {
     it('should initialize vaults successfully', async () => {
-      const password = 'secret'
+      const encryptionKey = 'secret'
       const mockSend = jest.fn().mockResolvedValue()
       const replyData = JSON.stringify({})
       const mockReply = jest.fn().mockResolvedValue(replyData)
@@ -73,9 +74,9 @@ describe('PearpassVaultClient', () => {
         reply: mockReply
       })
 
-      await expect(client.vaultsInit(password)).resolves.toBeUndefined()
+      await expect(client.vaultsInit(encryptionKey)).resolves.toBeUndefined()
       expect(client.rpc.request).toHaveBeenCalledWith(VAULTS_INIT)
-      expect(mockSend).toHaveBeenCalledWith(JSON.stringify({ password }))
+      expect(mockSend).toHaveBeenCalledWith(JSON.stringify({ encryptionKey }))
       expect(mockReply).toHaveBeenCalledWith('utf8')
     })
 
@@ -180,9 +181,29 @@ describe('PearpassVaultClient', () => {
         reply: mockReply
       })
 
-      const result = await client.activeVaultInit(id)
+      const result = await client.activeVaultInit({ id })
       expect(client.rpc.request).toHaveBeenCalledWith(ACTIVE_VAULT_INIT)
       expect(mockSend).toHaveBeenCalledWith(JSON.stringify({ id }))
+      expect(mockReply).toHaveBeenCalledWith('utf8')
+      expect(result).toEqual(responseObj)
+    })
+
+    it('should initialize active vault with encryptionKey', async () => {
+      const id = 'vault123'
+      const encryptionKey = 'encryptionKey123'
+      const responseObj = { id, initialized: true }
+      const replyData = JSON.stringify(responseObj)
+      const mockSend = jest.fn().mockResolvedValue()
+      const mockReply = jest.fn().mockResolvedValue(replyData)
+      client.rpc.request.mockReturnValueOnce({
+        send: mockSend,
+        reply: mockReply
+      })
+      const result = await client.activeVaultInit({ id, encryptionKey })
+      expect(client.rpc.request).toHaveBeenCalledWith(ACTIVE_VAULT_INIT)
+      expect(mockSend).toHaveBeenCalledWith(
+        JSON.stringify({ id, encryptionKey })
+      )
       expect(mockReply).toHaveBeenCalledWith('utf8')
       expect(result).toEqual(responseObj)
     })
@@ -458,6 +479,321 @@ describe('PearpassVaultClient', () => {
       const callback = client.rpc._callback
       callback({ command: ON_UPDATE })
       expect(updateHandler).toHaveBeenCalled()
+    })
+  })
+
+  describe('debugMode and _logger', () => {
+    it('should initialize with debugMode=false by default', () => {
+      const client = new PearpassVaultClient(fakeWorklet, '/path')
+      expect(client.debugMode).toBe(false)
+    })
+
+    it('should initialize with provided debugMode', () => {
+      const client = new PearpassVaultClient(fakeWorklet, '/path', {
+        debugMode: true
+      })
+      expect(client.debugMode).toBe(true)
+    })
+
+    it('should not log to console when debugMode is false', () => {
+      const consoleSpy = jest.spyOn(console, 'log').mockImplementation()
+      const client = new PearpassVaultClient(fakeWorklet, '/path', {
+        debugMode: false
+      })
+
+      client._logger.log('test message')
+      expect(consoleSpy).not.toHaveBeenCalled()
+
+      consoleSpy.mockRestore()
+    })
+
+    it('should log to console when debugMode is true', () => {
+      const consoleSpy = jest.spyOn(console, 'log').mockImplementation()
+      const client = new PearpassVaultClient(fakeWorklet, '/path', {
+        debugMode: true
+      })
+
+      client._logger.log('test message')
+      expect(consoleSpy).toHaveBeenCalledWith('test message')
+
+      consoleSpy.mockRestore()
+    })
+
+    it('should always log errors regardless of debugMode', () => {
+      const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation()
+
+      const client1 = new PearpassVaultClient(fakeWorklet, '/path', {
+        debugMode: false
+      })
+      client1._logger.error('error message')
+      expect(consoleErrorSpy).toHaveBeenCalledWith('error message')
+
+      consoleErrorSpy.mockClear()
+
+      const client2 = new PearpassVaultClient(fakeWorklet, '/path', {
+        debugMode: true
+      })
+      client2._logger.error('error message')
+      expect(consoleErrorSpy).toHaveBeenCalledWith('error message')
+
+      consoleErrorSpy.mockRestore()
+    })
+
+    it('should handle LOGGER commands from RPC', () => {
+      const consoleSpy = jest.spyOn(console, 'log').mockImplementation()
+      const client = new PearpassVaultClient(fakeWorklet, '/path', {
+        debugMode: true
+      })
+
+      const callback = client.rpc._callback
+      callback({ command: 'LOGGER_test_message' })
+
+      expect(consoleSpy).toHaveBeenCalledWith('LOGGER:', '_test_message')
+
+      consoleSpy.mockRestore()
+    })
+
+    it('should log errors for unknown commands', () => {
+      const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation()
+      const client = new PearpassVaultClient(fakeWorklet, '/path')
+
+      const callback = client.rpc._callback
+      callback({ command: 'UNKNOWN_COMMAND' })
+
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        'Unknown command:',
+        'UNKNOWN_COMMAND'
+      )
+
+      consoleErrorSpy.mockRestore()
+    })
+  })
+
+  describe('decryptVaultKey', () => {
+    it('should decrypt the vault key with provided parameters', async () => {
+      const decryptParams = {
+        ciphertext: 'encrypted-content',
+        nonce: 'random-nonce',
+        salt: 'salt-value',
+        password: 'testPassword123'
+      }
+
+      const decryptedData = 'decrypted-vault-key'
+      const responseObj = { data: decryptedData }
+      const replyData = JSON.stringify(responseObj)
+
+      const mockSend = jest.fn().mockResolvedValue()
+      const mockReply = jest.fn().mockResolvedValue(replyData)
+
+      client.rpc.request.mockReturnValueOnce({
+        send: mockSend,
+        reply: mockReply
+      })
+
+      const result = await client.decryptVaultKey(decryptParams)
+
+      expect(client.rpc.request).toHaveBeenCalledWith(
+        'ENCRYPTION_DECRYPT_VAULT_KEY'
+      )
+      expect(mockSend).toHaveBeenCalledWith(JSON.stringify(decryptParams))
+      expect(mockReply).toHaveBeenCalledWith('utf8')
+      expect(result).toEqual(decryptedData)
+    })
+
+    it('should handle errors when decrypting vault key', async () => {
+      const decryptParams = {
+        ciphertext: 'encrypted-content',
+        nonce: 'random-nonce',
+        salt: 'salt-value',
+        password: 'wrongPassword'
+      }
+
+      const mockSend = jest
+        .fn()
+        .mockRejectedValue(new Error('Decryption error'))
+
+      client.rpc.request.mockReturnValueOnce({
+        send: mockSend
+      })
+
+      const consoleSpy = jest.spyOn(console, 'error').mockImplementation()
+
+      await client.decryptVaultKey(decryptParams)
+
+      expect(consoleSpy).toHaveBeenCalledWith(
+        'Error adding encryption:',
+        expect.any(Error)
+      )
+
+      consoleSpy.mockRestore()
+    })
+
+    it('should log decrypt vault key operation in debug mode', async () => {
+      const debugClient = new PearpassVaultClient(fakeWorklet, '/path', {
+        debugMode: true
+      })
+
+      const decryptParams = {
+        ciphertext: 'encrypted-content',
+        nonce: 'random-nonce',
+        salt: 'salt-value',
+        password: 'testPassword123'
+      }
+
+      const responseObj = { data: 'decrypted-key' }
+      const replyData = JSON.stringify(responseObj)
+
+      const mockSend = jest.fn().mockResolvedValue()
+      const mockReply = jest.fn().mockResolvedValue(replyData)
+
+      debugClient.rpc.request = jest.fn().mockReturnValueOnce({
+        send: mockSend,
+        reply: mockReply
+      })
+
+      const consoleSpy = jest.spyOn(console, 'log').mockImplementation()
+
+      await debugClient.decryptVaultKey(decryptParams)
+
+      expect(consoleSpy).toHaveBeenCalledWith(
+        'Decrypting vault key',
+        expect.objectContaining(decryptParams)
+      )
+      expect(consoleSpy).toHaveBeenCalledWith(
+        'Vault key decrypted',
+        expect.anything()
+      )
+
+      consoleSpy.mockRestore()
+    })
+
+    it('should return undefined when decryption fails', async () => {
+      const decryptParams = {
+        ciphertext: 'encrypted-content',
+        nonce: 'random-nonce',
+        salt: 'salt-value',
+        password: 'testPassword123'
+      }
+
+      const responseObj = { error: 'Invalid password' }
+      const replyData = JSON.stringify(responseObj)
+
+      const mockSend = jest.fn().mockResolvedValue()
+      const mockReply = jest.fn().mockResolvedValue(replyData)
+
+      client.rpc.request.mockReturnValueOnce({
+        send: mockSend,
+        reply: mockReply
+      })
+
+      const result = await client.decryptVaultKey(decryptParams)
+
+      expect(result).toBeUndefined()
+    })
+  })
+
+  describe('encryptVaultKey', () => {
+    it('should encrypt the vault key with provided password', async () => {
+      const password = 'strongPassword123'
+      const encryptedData = {
+        ciphertext: 'encrypted-content',
+        nonce: 'random-nonce',
+        salt: 'salt-value'
+      }
+      const responseObj = { data: encryptedData }
+      const replyData = JSON.stringify(responseObj)
+
+      const mockSend = jest.fn().mockResolvedValue()
+      const mockReply = jest.fn().mockResolvedValue(replyData)
+
+      client.rpc.request.mockReturnValueOnce({
+        send: mockSend,
+        reply: mockReply
+      })
+
+      const result = await client.encryptVaultKey(password)
+
+      expect(client.rpc.request).toHaveBeenCalledWith(
+        ENCRYPTION_ENCRYPT_VAULT_KEY
+      )
+      expect(mockSend).toHaveBeenCalledWith(JSON.stringify({ password }))
+      expect(mockReply).toHaveBeenCalledWith('utf8')
+      expect(result).toEqual(encryptedData)
+    })
+
+    it('should handle errors when encrypting vault key', async () => {
+      const password = 'strongPassword123'
+      const mockSend = jest
+        .fn()
+        .mockRejectedValue(new Error('Encryption error'))
+
+      client.rpc.request.mockReturnValueOnce({
+        send: mockSend
+      })
+
+      const consoleSpy = jest.spyOn(console, 'error').mockImplementation()
+
+      await client.encryptVaultKey(password)
+
+      expect(consoleSpy).toHaveBeenCalledWith(
+        'Error adding encryption:',
+        expect.any(Error)
+      )
+
+      consoleSpy.mockRestore()
+    })
+
+    it('should log encrypt vault key operation in debug mode', async () => {
+      const debugClient = new PearpassVaultClient(fakeWorklet, '/path', {
+        debugMode: true
+      })
+
+      const password = 'strongPassword123'
+      const encryptedData = {
+        ciphertext: 'encrypted-content',
+        nonce: 'random-nonce',
+        salt: 'salt-value'
+      }
+      const responseObj = { data: encryptedData }
+      const replyData = JSON.stringify(responseObj)
+
+      const mockSend = jest.fn().mockResolvedValue()
+      const mockReply = jest.fn().mockResolvedValue(replyData)
+
+      debugClient.rpc.request = jest.fn().mockReturnValueOnce({
+        send: mockSend,
+        reply: mockReply
+      })
+
+      const consoleSpy = jest.spyOn(console, 'log').mockImplementation()
+
+      await debugClient.encryptVaultKey(password)
+
+      expect(consoleSpy).toHaveBeenCalledWith('Encrypting vault key', password)
+      expect(consoleSpy).toHaveBeenCalledWith(
+        'Vault key encrypted',
+        expect.anything()
+      )
+
+      consoleSpy.mockRestore()
+    })
+
+    it('should return undefined when encryption fails without response data', async () => {
+      const password = 'strongPassword123'
+      const responseObj = { error: 'Encryption failed' }
+      const replyData = JSON.stringify(responseObj)
+
+      const mockSend = jest.fn().mockResolvedValue()
+      const mockReply = jest.fn().mockResolvedValue(replyData)
+
+      client.rpc.request.mockReturnValueOnce({
+        send: mockSend,
+        reply: mockReply
+      })
+
+      const result = await client.encryptVaultKey(password)
+
+      expect(result).toBeUndefined()
     })
   })
 })

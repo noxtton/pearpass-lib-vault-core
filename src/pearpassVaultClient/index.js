@@ -13,6 +13,8 @@ import {
   ACTIVE_VAULT_REMOVE,
   ENCRYPTION_ADD,
   ENCRYPTION_CLOSE,
+  ENCRYPTION_DECRYPT_VAULT_KEY,
+  ENCRYPTION_ENCRYPT_VAULT_KEY,
   ENCRYPTION_GET,
   ENCRYPTION_GET_STATUS,
   ENCRYPTION_INIT,
@@ -28,8 +30,23 @@ import {
 } from '../worklet/api'
 
 export class PearpassVaultClient extends EventEmitter {
-  constructor(worklet, storagePath) {
+  constructor(worklet, storagePath, { debugMode = false } = {}) {
     super()
+
+    this.debugMode = debugMode
+
+    this._logger = {
+      log: (...args) => {
+        if (!this.debugMode) {
+          return
+        }
+
+        console.log(...args)
+      },
+      error: (...args) => {
+        console.error(...args)
+      }
+    }
 
     this.rpc = new RPC(worklet.IPC, (req) => {
       switch (req.command) {
@@ -37,8 +54,15 @@ export class PearpassVaultClient extends EventEmitter {
           this.emit('update')
 
           break
+
         default:
-          console.error('Unknown command:', req.command)
+          if (req.command.includes('LOGGER')) {
+            this._logger.log('LOGGER:', req.command.replace('LOGGER', ''))
+
+            return
+          }
+
+          this._logger.error('Unknown command:', req.command)
       }
     })
 
@@ -51,27 +75,27 @@ export class PearpassVaultClient extends EventEmitter {
     try {
       const req = this.rpc.request(STORAGE_PATH_SET)
 
-      console.log('Setting storage path:', path)
+      this._logger.log('Setting storage path:', path)
 
       await req.send(JSON.stringify({ path }))
 
       await req.reply('utf8')
 
-      console.log('Storage path set:', path)
+      this._logger.log('Storage path set:', path)
     } catch (error) {
-      console.error('Error setting storage path:', error)
+      this._logger.error('Error setting storage path:', error)
     }
   }
 
-  async vaultsInit(password) {
+  async vaultsInit(encryptionKey) {
     try {
       const req = this.rpc.request(VAULTS_INIT)
 
-      console.log('Initializing vaults...', password)
+      this._logger.log('Initializing vaults...', encryptionKey)
 
       await req.send(
         JSON.stringify({
-          password: password
+          encryptionKey: encryptionKey
         })
       )
 
@@ -83,9 +107,9 @@ export class PearpassVaultClient extends EventEmitter {
         throw new Error(parsedRes.error)
       }
 
-      console.log('Vaults initialized', res)
+      this._logger.log('Vaults initialized', res)
     } catch (error) {
-      console.error('Error initializing vaults:', error)
+      this._logger.error('Error initializing vaults:', error)
 
       if (error.message.includes('ELOCKED')) {
         throw new Error('ELOCKED')
@@ -97,17 +121,17 @@ export class PearpassVaultClient extends EventEmitter {
     try {
       const req = this.rpc.request(VAULTS_GET_STATUS)
 
-      console.log('Getting vaults status...')
+      this._logger.log('Getting vaults status...')
 
       await req.send()
 
       const res = await req.reply('utf8')
 
-      console.log('Vaults status:', res)
+      this._logger.log('Vaults status:', res)
 
       return JSON.parse(res)
     } catch (error) {
-      console.error('Error getting vaults status:', error)
+      this._logger.error('Error getting vaults status:', error)
     }
   }
 
@@ -115,15 +139,15 @@ export class PearpassVaultClient extends EventEmitter {
     try {
       const req = this.rpc.request(VAULTS_CLOSE)
 
-      console.log('Closing vaults...')
+      this._logger.log('Closing vaults...')
 
       await req.send()
 
       const res = await req.reply('utf8')
 
-      console.log('Vaults closed', res)
+      this._logger.log('Vaults closed', res)
     } catch (error) {
-      console.error('Error closing vaults:', error)
+      this._logger.error('Error closing vaults:', error)
     }
   }
 
@@ -131,14 +155,17 @@ export class PearpassVaultClient extends EventEmitter {
     try {
       const req = this.rpc.request(VAULTS_ADD)
 
-      console.log('Adding vault data in vaults:', { key, data: vault })
+      this._logger.log('Adding vault data in vaults:', {
+        key,
+        data: vault
+      })
 
       await req.send(JSON.stringify({ key, data: vault }))
 
       await req.reply('utf8')
-      console.log('Vault added:', { key, data: vault })
+      this._logger.log('Vault added:', { key, data: vault })
     } catch (error) {
-      console.error('Error adding vault:', error)
+      this._logger.error('Error adding vault:', error)
     }
   }
 
@@ -146,37 +173,37 @@ export class PearpassVaultClient extends EventEmitter {
     try {
       const req = this.rpc.request(VAULTS_LIST)
 
-      console.log('Listing vaults:', filterKey)
+      this._logger.log('Listing vaults:', filterKey)
 
       await req.send(JSON.stringify({ filterKey }))
 
       const res = await req.reply('utf8')
 
-      console.log('Vaults listed:', res)
+      this._logger.log('Vaults listed:', res)
 
       const parsedRes = JSON.parse(res)
 
       return parsedRes.data
     } catch (error) {
-      console.error('Error listing vaults:', error)
+      this._logger.error('Error listing vaults:', error)
     }
   }
 
-  async activeVaultInit(id) {
+  async activeVaultInit({ id, encryptionKey }) {
     try {
       const req = this.rpc.request(ACTIVE_VAULT_INIT)
 
-      console.log('Initializing active vault:', id)
+      this._logger.log('Initializing active vault:', id)
 
-      await req.send(JSON.stringify({ id }))
+      await req.send(JSON.stringify({ id, encryptionKey }))
 
       const res = await req.reply('utf8')
 
-      console.log('Active vault initialized:', res)
+      this._logger.log('Active vault initialized:', res)
 
       return JSON.parse(res)
     } catch (error) {
-      console.error('Error initializing active vault:', error)
+      this._logger.error('Error initializing active vault:', error)
     }
   }
 
@@ -184,17 +211,17 @@ export class PearpassVaultClient extends EventEmitter {
     try {
       const req = this.rpc.request(ACTIVE_VAULT_GET_STATUS)
 
-      console.log('Getting active vault status...')
+      this._logger.log('Getting active vault status...')
 
       await req.send()
 
       const res = await req.reply('utf8')
 
-      console.log('Active vault status:', res)
+      this._logger.log('Active vault status:', res)
 
       return JSON.parse(res)
     } catch (error) {
-      console.error('Error getting active vault status:', error)
+      this._logger.error('Error getting active vault status:', error)
     }
   }
 
@@ -202,15 +229,15 @@ export class PearpassVaultClient extends EventEmitter {
     try {
       const req = this.rpc.request(ACTIVE_VAULT_CLOSE)
 
-      console.log('Closing active vault...')
+      this._logger.log('Closing active vault...')
 
       await req.send()
 
       await req.reply('utf8')
 
-      console.log('Active vault closed')
+      this._logger.log('Active vault closed')
     } catch (error) {
-      console.error('Error closing active vault:', error)
+      this._logger.error('Error closing active vault:', error)
     }
   }
 
@@ -218,15 +245,15 @@ export class PearpassVaultClient extends EventEmitter {
     try {
       const req = this.rpc.request(ACTIVE_VAULT_ADD)
 
-      console.log('Adding active vault:', key, data)
+      this._logger.log('Adding active vault:', key, data)
 
       await req.send(JSON.stringify({ key, data }))
 
       await req.reply('utf8')
 
-      console.log('Active vault added:', key, data)
+      this._logger.log('Active vault added:', key, data)
     } catch (error) {
-      console.error('Error adding active vault:', error)
+      this._logger.error('Error adding active vault:', error)
     }
   }
 
@@ -234,15 +261,15 @@ export class PearpassVaultClient extends EventEmitter {
     try {
       const req = this.rpc.request(ACTIVE_VAULT_REMOVE)
 
-      console.log('Removing active vault:', key)
+      this._logger.log('Removing active vault:', key)
 
       await req.send(JSON.stringify({ key }))
 
       await req.reply('utf8')
 
-      console.log('Active vault removed:', key)
+      this._logger.log('Active vault removed:', key)
     } catch (error) {
-      console.error('Error removing active vault:', error)
+      this._logger.error('Error removing active vault:', error)
     }
   }
 
@@ -250,19 +277,19 @@ export class PearpassVaultClient extends EventEmitter {
     try {
       const req = this.rpc.request(ACTIVE_VAULT_LIST)
 
-      console.log('Listing active vault...')
+      this._logger.log('Listing active vault...')
 
       await req.send(JSON.stringify({ filterKey }))
 
       const res = await req.reply('utf8')
 
-      console.log('Active vault listed:', res)
+      this._logger.log('Active vault listed:', res)
 
       const parsedRes = JSON.parse(res)
 
       return parsedRes.data
     } catch (error) {
-      console.error('Error listing active vault:', error)
+      this._logger.error('Error listing active vault:', error)
     }
   }
 
@@ -270,19 +297,19 @@ export class PearpassVaultClient extends EventEmitter {
     try {
       const req = this.rpc.request(ACTIVE_VAULT_GET)
 
-      console.log('Getting active vault:', key)
+      this._logger.log('Getting active vault:', key)
 
       await req.send(JSON.stringify({ key }))
 
       const res = await req.reply('utf8')
 
-      console.log('Active vault:', res)
+      this._logger.log('Active vault:', res)
 
       const parsedRed = JSON.parse(res)
 
       return parsedRed.data
     } catch (error) {
-      console.error('Error getting active vault:', error)
+      this._logger.error('Error getting active vault:', error)
     }
   }
 
@@ -290,19 +317,19 @@ export class PearpassVaultClient extends EventEmitter {
     try {
       const req = this.rpc.request(ACTIVE_VAULT_CREATE_INVITE)
 
-      console.log('Creating invite...')
+      this._logger.log('Creating invite...')
 
       await req.send()
 
       const res = await req.reply('utf8')
 
-      console.log('Invite created:', res)
+      this._logger.log('Invite created:', res)
 
       const parsedRes = JSON.parse(res)
 
       return parsedRes.data
     } catch (error) {
-      console.error('Error creating invite:', error)
+      this._logger.error('Error creating invite:', error)
     }
   }
 
@@ -310,19 +337,19 @@ export class PearpassVaultClient extends EventEmitter {
     try {
       const req = this.rpc.request(PAIR)
 
-      console.log('Pairing with invite code:', inviteCode)
+      this._logger.log('Pairing with invite code:', inviteCode)
 
       await req.send(JSON.stringify({ inviteCode }))
 
       const res = await req.reply('utf8')
 
-      console.log('Paired:', res)
+      this._logger.log('Paired:', res)
 
       const parsedRes = JSON.parse(res)
 
       return parsedRes.data
     } catch (error) {
-      console.error('Error pairing:', error)
+      this._logger.error('Error pairing:', error)
     }
   }
 
@@ -330,19 +357,19 @@ export class PearpassVaultClient extends EventEmitter {
     try {
       const req = this.rpc.request(INIT_LISTENER)
 
-      console.log('Initializing listener:', vaultId)
+      this._logger.log('Initializing listener:', vaultId)
 
       await req.send(JSON.stringify({ vaultId }))
 
       const res = await req.reply('utf8')
 
-      console.log('Listener initialized:', res)
+      this._logger.log('Listener initialized:', res)
 
       const parsedRes = JSON.parse(res)
 
       return parsedRes.success
     } catch (error) {
-      console.error('Error pairing:', error)
+      this._logger.error('Error pairing:', error)
     }
   }
 
@@ -350,19 +377,19 @@ export class PearpassVaultClient extends EventEmitter {
     try {
       const req = this.rpc.request(ENCRYPTION_INIT)
 
-      console.log('Initializing encryption...')
+      this._logger.log('Initializing encryption...')
 
       await req.send()
 
       const res = await req.reply('utf8')
 
-      console.log('Encryption initialized:', res)
+      this._logger.log('Encryption initialized:', res)
 
       const parsedRes = JSON.parse(res)
 
       return parsedRes.success
     } catch (error) {
-      console.error('Error initializing encryption:', error)
+      this._logger.error('Error initializing encryption:', error)
     }
   }
 
@@ -370,17 +397,17 @@ export class PearpassVaultClient extends EventEmitter {
     try {
       const req = this.rpc.request(ENCRYPTION_GET_STATUS)
 
-      console.log('Getting encryption status...')
+      this._logger.log('Getting encryption status...')
 
       await req.send()
 
       const res = await req.reply('utf8')
 
-      console.log('Encryption status:', res)
+      this._logger.log('Encryption status:', res)
 
       return JSON.parse(res)
     } catch (error) {
-      console.error('Error getting encryption status:', error)
+      this._logger.error('Error getting encryption status:', error)
     }
   }
 
@@ -388,19 +415,19 @@ export class PearpassVaultClient extends EventEmitter {
     try {
       const req = this.rpc.request(ENCRYPTION_GET)
 
-      console.log('Getting encryption:', key)
+      this._logger.log('Getting encryption:', key)
 
       await req.send(JSON.stringify({ key }))
 
       const res = await req.reply('utf8')
 
-      console.log('Encryption:', res)
+      this._logger.log('Encryption:', res)
 
       const parsedRes = JSON.parse(res)
 
       return parsedRes.data
     } catch (error) {
-      console.error('Error getting encryption:', error)
+      this._logger.error('Error getting encryption:', error)
     }
   }
 
@@ -408,15 +435,67 @@ export class PearpassVaultClient extends EventEmitter {
     try {
       const req = this.rpc.request(ENCRYPTION_ADD)
 
-      console.log('Adding encryption:', key, data)
+      this._logger.log('Adding encryption:', key, data)
 
       await req.send(JSON.stringify({ key, data }))
 
       await req.reply('utf8')
 
-      console.log('Encryption added:', key, data)
+      this._logger.log('Encryption added:', key, data)
     } catch (error) {
-      console.error('Error adding encryption:', error)
+      this._logger.error('Error adding encryption:', error)
+    }
+  }
+
+  async encryptVaultKey(password) {
+    try {
+      const req = this.rpc.request(ENCRYPTION_ENCRYPT_VAULT_KEY)
+
+      this._logger.log('Encrypting vault key', password)
+
+      await req.send(JSON.stringify({ password }))
+
+      const res = await req.reply('utf8')
+
+      const parsedRes = JSON.parse(res)
+
+      this._logger.log('Vault key encrypted', parsedRes)
+
+      return parsedRes.data
+    } catch (error) {
+      this._logger.error('Error adding encryption:', error)
+    }
+  }
+
+  async decryptVaultKey({ ciphertext, nonce, salt, password }) {
+    try {
+      const req = this.rpc.request(ENCRYPTION_DECRYPT_VAULT_KEY)
+
+      this._logger.log('Decrypting vault key', {
+        ciphertext,
+        nonce,
+        salt,
+        password
+      })
+
+      await req.send(
+        JSON.stringify({
+          ciphertext,
+          nonce,
+          salt,
+          password
+        })
+      )
+
+      const res = await req.reply('utf8')
+
+      const parsedRes = JSON.parse(res)
+
+      this._logger.log('Vault key decrypted', parsedRes)
+
+      return parsedRes.data
+    } catch (error) {
+      this._logger.error('Error adding encryption:', error)
     }
   }
 
@@ -424,15 +503,15 @@ export class PearpassVaultClient extends EventEmitter {
     try {
       const req = this.rpc.request(ENCRYPTION_CLOSE)
 
-      console.log('Closing encryption...')
+      this._logger.log('Closing encryption...')
 
       await req.send()
 
       await req.reply('utf8')
 
-      console.log('Encryption closed')
+      this._logger.log('Encryption closed')
     } catch (error) {
-      console.error('Error closing encryption:', error)
+      this._logger.error('Error closing encryption:', error)
     }
   }
 }

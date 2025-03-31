@@ -22,7 +22,9 @@ import {
   ENCRYPTION_GET_STATUS,
   ENCRYPTION_GET,
   ENCRYPTION_ADD,
-  ENCRYPTION_CLOSE
+  ENCRYPTION_CLOSE,
+  ENCRYPTION_ENCRYPT_VAULT_KEY,
+  ENCRYPTION_DECRYPT_VAULT_KEY
 } from './api'
 import {
   vaultsInit,
@@ -47,6 +49,8 @@ import {
   getIsActiveVaultInitialized,
   getIsEncryptionInitialized
 } from './appDeps'
+import { decryptVaultKey } from './decryptVaultKey'
+import { encryptVaultKey } from './encryptVaultKey'
 
 export const handleRpcCommand = async (req) => {
   const data = req?.data ? JSON.parse(req?.data) : undefined
@@ -61,11 +65,11 @@ export const handleRpcCommand = async (req) => {
 
     case VAULTS_INIT:
       try {
-        if (!data.password) {
+        if (!data.encryptionKey) {
           throw new Error('Password is required')
         }
 
-        const res = await vaultsInit(data.password)
+        const res = await vaultsInit(data.encryptionKey)
 
         req.reply(JSON.stringify({ success: true, res }))
       } catch (error) {
@@ -130,7 +134,7 @@ export const handleRpcCommand = async (req) => {
 
     case ACTIVE_VAULT_INIT:
       try {
-        await initActiveVaultInstance(data?.id)
+        await initActiveVaultInstance(data?.id, data?.encryptionKey)
 
         req.reply(JSON.stringify({ success: true }))
       } catch (error) {
@@ -327,6 +331,36 @@ export const handleRpcCommand = async (req) => {
         req.reply(
           JSON.stringify({
             error: `Error adding encryption data: ${error}`
+          })
+        )
+      }
+
+      break
+
+    case ENCRYPTION_ENCRYPT_VAULT_KEY:
+      try {
+        const res = encryptVaultKey(data.password)
+
+        req.reply(JSON.stringify({ data: res }))
+      } catch (error) {
+        req.reply(
+          JSON.stringify({
+            error: `Error encrypting vault key: ${error}`
+          })
+        )
+      }
+
+      break
+
+    case ENCRYPTION_DECRYPT_VAULT_KEY:
+      try {
+        const res = decryptVaultKey(data)
+
+        req.reply(JSON.stringify({ data: res }))
+      } catch (error) {
+        req.reply(
+          JSON.stringify({
+            error: `Error decrypting vault key: ${error}`
           })
         )
       }

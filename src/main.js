@@ -46,7 +46,13 @@ const loadAssetByPlatform = async () => {
   fileUri = assets[0].localUri
 }
 
-export const createPearpassVaultClient = async () => {
+/**
+ * @param {{
+ *   debugMode?: boolean
+ * }} options
+ * @returns {Promise<PearpassVaultClient>}
+ */
+export const createPearpassVaultClient = async ({ debugMode } = {}) => {
   await loadAssetByPlatform()
 
   if (!fileUri) {
@@ -59,5 +65,7 @@ export const createPearpassVaultClient = async () => {
 
   await ensureDirectoryExist(path)
 
-  return new PearpassVaultClient(worklet, path)
+  return new PearpassVaultClient(worklet, path, {
+    debugMode: debugMode
+  })
 }

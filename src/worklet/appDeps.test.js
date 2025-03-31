@@ -90,6 +90,15 @@ jest.mock('corestore', () => {
   }))
 })
 
+jest.mock('bare-rpc', () => {
+  return jest.fn().mockImplementation(() => ({
+    request: jest.fn().mockReturnValue({
+      send: jest.fn().mockResolvedValue(),
+      reply: jest.fn().mockResolvedValue('{}')
+    })
+  }))
+})
+
 import * as appDeps from './appDeps'
 
 describe('appDeps module functions (excluding encryption)', () => {
@@ -170,7 +179,7 @@ describe('appDeps module functions (excluding encryption)', () => {
 
     test('initActiveVaultInstance sets active vault as initialized', async () => {
       await appDeps.setStoragePath('file://base')
-      await appDeps.initActiveVaultInstance('vault1')
+      await appDeps.initActiveVaultInstance('vault1', 'password')
       expect(appDeps.getIsActiveVaultInitialized()).toBe(true)
     })
 
