@@ -2,6 +2,7 @@ import sodium from 'sodium-native'
 
 import { decryptVaultKey } from './decryptVaultKey'
 import { encryptVaultKey } from './encryptVaultKey'
+import { getDecryptionKey } from './getDecryptionKey'
 
 jest.mock('sodium-native', () => ({
   crypto_secretbox_KEYBYTES: 32,
@@ -40,13 +41,11 @@ describe('decryptVaultKey', () => {
     const data = {
       ciphertext: Buffer.alloc(48).fill('a').toString('base64'),
       nonce: Buffer.alloc(24).fill('b').toString('base64'),
-      salt: Buffer.alloc(16).fill('c').toString('base64'),
-      password: 'mySecurePassword'
+      decryptionKey: 'mySecureKey'
     }
 
     const result = decryptVaultKey(data)
     expect(result).toBeDefined()
-    expect(sodium.crypto_pwhash).toHaveBeenCalled()
     expect(sodium.crypto_secretbox_open_easy).toHaveBeenCalled()
   })
 
@@ -56,8 +55,7 @@ describe('decryptVaultKey', () => {
     const data = {
       ciphertext: Buffer.alloc(48).fill('a').toString('base64'),
       nonce: Buffer.alloc(24).fill('b').toString('base64'),
-      salt: Buffer.alloc(16).fill('c').toString('base64'),
-      password: 'wrongPassword'
+      decryptionKey: 'wrongSecureKey'
     }
 
     const result = decryptVaultKey(data)
@@ -70,8 +68,7 @@ describe('decryptVaultKey', () => {
     const data = {
       ciphertext: Buffer.alloc(64).fill('x').toString('base64'),
       nonce: Buffer.alloc(24).fill('y').toString('base64'),
-      salt: Buffer.alloc(16).fill('z').toString('base64'),
-      password: 'longPassword123'
+      decryptionKey: 'wrongSecureKey'
     }
 
     decryptVaultKey(data)
@@ -104,9 +101,14 @@ describe('decryptVaultKey', () => {
     )
 
     const encryptedData = encryptVaultKey(originalPassword)
-    const decryptedKey = decryptVaultKey({
-      ...encryptedData,
+    const decryptionKey = getDecryptionKey({
+      salt: encryptedData.salt,
       password: originalPassword
+    })
+    const decryptedKey = decryptVaultKey({
+      ciphertext: encryptedData.ciphertext,
+      nonce: encryptedData.nonce,
+      decryptionKey
     })
 
     expect(decryptedKey).toBeDefined()

@@ -262,15 +262,30 @@ export const activeVaultAdd = async (key, data) => {
 }
 
 /**
- * @param {any} vault
+ * @param {string} key
  * @returns {Promise<void>}
  */
-export const vaultsAdd = async (key, vault) => {
+export const vaultsGet = async (key) => {
+  if (!isVaultsInitialized) {
+    throw new Error('Vaults not initialised')
+  }
+
+  const res = await vaultsInstance.get(key)
+
+  return res
+}
+
+/**
+ * @param {string} key
+ * @param {any} data
+ * @returns {Promise<void>}
+ */
+export const vaultsAdd = async (key, data) => {
   if (!isVaultsInitialized) {
     throw new Error('Vault not initialised')
   }
 
-  await vaultsInstance.add(key, vault)
+  await vaultsInstance.add(key, data)
 }
 
 /**

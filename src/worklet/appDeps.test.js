@@ -203,6 +203,13 @@ describe('appDeps module functions (excluding encryption)', () => {
       expect(mockInstance.add).toHaveBeenCalledWith('key1', { data: 'test' })
     })
 
+    test('vaultsGet calls get on vaultInstance and returns result', async () => {
+      await appDeps.setStoragePath('file://base')
+      await appDeps.vaultsInit('vault1')
+      const result = await appDeps.vaultsGet('key4')
+      expect(result).toEqual({ id: 'vault-id' })
+    })
+
     test('vaultsAdd calls add on vaultsInstance', async () => {
       await appDeps.setStoragePath('file://base')
       await appDeps.vaultsInit('any-password')

@@ -24,7 +24,9 @@ import {
   ENCRYPTION_ADD,
   ENCRYPTION_CLOSE,
   ENCRYPTION_ENCRYPT_VAULT_KEY,
-  ENCRYPTION_DECRYPT_VAULT_KEY
+  ENCRYPTION_DECRYPT_VAULT_KEY,
+  ENCRYPTION_GET_DECRYPTION_KEY,
+  VAULTS_GET
 } from './api'
 import {
   vaultsInit,
@@ -47,10 +49,12 @@ import {
   setStoragePath,
   getIsVaultsInitialized,
   getIsActiveVaultInitialized,
-  getIsEncryptionInitialized
+  getIsEncryptionInitialized,
+  vaultsGet
 } from './appDeps'
 import { decryptVaultKey } from './decryptVaultKey'
 import { encryptVaultKey } from './encryptVaultKey'
+import { getDecryptionKey } from './getDecryptionKey'
 
 export const handleRpcCommand = async (req) => {
   const data = req?.data ? JSON.parse(req?.data) : undefined
@@ -84,6 +88,21 @@ export const handleRpcCommand = async (req) => {
 
     case VAULTS_GET_STATUS:
       req.reply(JSON.stringify({ status: getIsVaultsInitialized() }))
+
+      break
+
+    case VAULTS_GET:
+      try {
+        const res = await vaultsGet(data?.key)
+
+        req.reply(JSON.stringify({ data: res }))
+      } catch (error) {
+        req.reply(
+          JSON.stringify({
+            error: `Error getting records from active vault: ${error}`
+          })
+        )
+      }
 
       break
 
@@ -352,9 +371,35 @@ export const handleRpcCommand = async (req) => {
 
       break
 
+    case ENCRYPTION_GET_DECRYPTION_KEY:
+      try {
+        const { salt, password } = data
+
+        const decryptionKey = getDecryptionKey({
+          password,
+          salt
+        })
+
+        req.reply(JSON.stringify({ data: decryptionKey }))
+      } catch (error) {
+        req.reply(
+          JSON.stringify({
+            error: `Error decrypting vault key: ${error}`
+          })
+        )
+      }
+
+      break
+
     case ENCRYPTION_DECRYPT_VAULT_KEY:
       try {
-        const res = decryptVaultKey(data)
+        const { ciphertext, nonce, decryptionKey } = data
+
+        const res = decryptVaultKey({
+          ciphertext,
+          nonce,
+          decryptionKey
+        })
 
         req.reply(JSON.stringify({ data: res }))
       } catch (error) {

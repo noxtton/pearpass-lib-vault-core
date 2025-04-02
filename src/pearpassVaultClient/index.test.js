@@ -22,7 +22,9 @@ import {
   ENCRYPTION_ADD,
   ENCRYPTION_CLOSE,
   ON_UPDATE,
-  ENCRYPTION_ENCRYPT_VAULT_KEY
+  ENCRYPTION_ENCRYPT_VAULT_KEY,
+  ENCRYPTION_GET_DECRYPTION_KEY,
+  VAULTS_GET
 } from '../worklet/api'
 
 jest.mock('bare-rpc', () => {
@@ -110,6 +112,26 @@ describe('PearpassVaultClient', () => {
       expect(mockSend).toHaveBeenCalled()
       expect(mockReply).toHaveBeenCalledWith('utf8')
       expect(result).toEqual(statusObj)
+    })
+  })
+
+  describe('vaultsGet', () => {
+    it('should get vault data', async () => {
+      const key = 'key1'
+      const responseObj = { data: { foo: 'bar' } }
+      const replyData = JSON.stringify(responseObj)
+      const mockSend = jest.fn().mockResolvedValue()
+      const mockReply = jest.fn().mockResolvedValue(replyData)
+      client.rpc.request.mockReturnValueOnce({
+        send: mockSend,
+        reply: mockReply
+      })
+
+      const result = await client.vaultsGet(key)
+      expect(client.rpc.request).toHaveBeenCalledWith(VAULTS_GET)
+      expect(mockSend).toHaveBeenCalledWith(JSON.stringify({ key }))
+      expect(mockReply).toHaveBeenCalledWith('utf8')
+      expect(result).toEqual(responseObj.data)
     })
   })
 
@@ -569,13 +591,154 @@ describe('PearpassVaultClient', () => {
     })
   })
 
+  describe('getDecryptionKey', () => {
+    it('should get decryption key with provided salt and password', async () => {
+      const params = {
+        salt: 'salt-value',
+        password: 'testPassword123'
+      }
+
+      const decryptionKey = 'derived-decryption-key'
+      const responseObj = { data: decryptionKey }
+      const replyData = JSON.stringify(responseObj)
+
+      const mockSend = jest.fn().mockResolvedValue()
+      const mockReply = jest.fn().mockResolvedValue(replyData)
+
+      client.rpc.request.mockReturnValueOnce({
+        send: mockSend,
+        reply: mockReply
+      })
+
+      const result = await client.getDecryptionKey(params)
+
+      expect(client.rpc.request).toHaveBeenCalledWith(
+        ENCRYPTION_GET_DECRYPTION_KEY
+      )
+      expect(mockSend).toHaveBeenCalledWith(JSON.stringify(params))
+      expect(mockReply).toHaveBeenCalledWith('utf8')
+      expect(result).toEqual(decryptionKey)
+    })
+
+    it('should handle errors when getting decryption key', async () => {
+      const params = {
+        salt: 'salt-value',
+        password: 'wrong-password'
+      }
+
+      const mockSend = jest
+        .fn()
+        .mockRejectedValue(new Error('Decryption key error'))
+
+      client.rpc.request.mockReturnValueOnce({
+        send: mockSend
+      })
+
+      const consoleSpy = jest.spyOn(console, 'error').mockImplementation()
+
+      await client.getDecryptionKey(params)
+
+      expect(consoleSpy).toHaveBeenCalledWith(
+        'Error getting decryption:',
+        expect.any(Error)
+      )
+
+      consoleSpy.mockRestore()
+    })
+
+    it('should log getDecryptionKey operation in debug mode', async () => {
+      const debugClient = new PearpassVaultClient(fakeWorklet, '/path', {
+        debugMode: true
+      })
+
+      const params = {
+        salt: 'salt-value',
+        password: 'testPassword123'
+      }
+
+      const decryptionKey = 'derived-decryption-key'
+      const responseObj = { data: decryptionKey }
+      const replyData = JSON.stringify(responseObj)
+
+      const mockSend = jest.fn().mockResolvedValue()
+      const mockReply = jest.fn().mockResolvedValue(replyData)
+
+      debugClient.rpc.request = jest.fn().mockReturnValueOnce({
+        send: mockSend,
+        reply: mockReply
+      })
+
+      const consoleSpy = jest.spyOn(console, 'log').mockImplementation()
+
+      await debugClient.getDecryptionKey(params)
+
+      expect(consoleSpy).toHaveBeenCalledWith(
+        'Getting decryption key',
+        expect.objectContaining(params)
+      )
+      expect(consoleSpy).toHaveBeenCalledWith(
+        'Decryption key',
+        expect.anything()
+      )
+
+      consoleSpy.mockRestore()
+    })
+
+    it('should return undefined when decryption key derivation fails', async () => {
+      const params = {
+        salt: 'salt-value',
+        password: 'testPassword123'
+      }
+
+      const responseObj = { error: 'Invalid parameters' }
+      const replyData = JSON.stringify(responseObj)
+
+      const mockSend = jest.fn().mockResolvedValue()
+      const mockReply = jest.fn().mockResolvedValue(replyData)
+
+      client.rpc.request.mockReturnValueOnce({
+        send: mockSend,
+        reply: mockReply
+      })
+
+      const result = await client.getDecryptionKey(params)
+
+      expect(result).toBeUndefined()
+    })
+
+    it('should send properly formatted JSON data', async () => {
+      const params = {
+        salt: 'very-complex-salt-value',
+        password: 'Password$123'
+      }
+
+      const mockSend = jest.fn().mockResolvedValue()
+      const mockReply = jest
+        .fn()
+        .mockResolvedValue(JSON.stringify({ data: 'key' }))
+
+      client.rpc.request.mockReturnValueOnce({
+        send: mockSend,
+        reply: mockReply
+      })
+
+      await client.getDecryptionKey(params)
+
+      expect(mockSend).toHaveBeenCalledWith(
+        JSON.stringify({
+          salt: params.salt,
+          password: params.password
+        })
+      )
+    })
+  })
+
   describe('decryptVaultKey', () => {
     it('should decrypt the vault key with provided parameters', async () => {
       const decryptParams = {
         ciphertext: 'encrypted-content',
         nonce: 'random-nonce',
-        salt: 'salt-value',
-        password: 'testPassword123'
+        decryptionKey: 'decryption-key'
       }
 
       const decryptedData = 'decrypted-vault-key'
@@ -604,8 +767,7 @@ describe('PearpassVaultClient', () => {
       const decryptParams = {
         ciphertext: 'encrypted-content',
         nonce: 'random-nonce',
-        salt: 'salt-value',
-        password: 'wrongPassword'
+        decryptionKey: 'wrong-decryption-key'
       }
 
       const mockSend = jest
@@ -636,8 +798,7 @@ describe('PearpassVaultClient', () => {
       const decryptParams = {
         ciphertext: 'encrypted-content',
         nonce: 'random-nonce',
-        salt: 'salt-value',
-        password: 'testPassword123'
+        decryptionKey: 'decryption-key'
       }
 
       const responseObj = { data: 'decrypted-key' }

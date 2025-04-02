@@ -4,30 +4,16 @@ import sodium from 'sodium-native'
  * @param {{
  *   ciphertext: string
  *   nonce: string
- *   salt: string
- *   password: string
- * }} params
+ *   decryptionKey: string
+ * }} data
  * @returns {string | undefined}
  */
 export const decryptVaultKey = (data) => {
   const ciphertext = Buffer.from(data.ciphertext, 'base64')
   const nonce = Buffer.from(data.nonce, 'base64')
-  const salt = Buffer.from(data.salt, 'base64')
-  const password = Buffer.from(data.password)
 
-  const descryptionKey = sodium.sodium_malloc(sodium.crypto_secretbox_KEYBYTES)
-  const opslimit = sodium.crypto_pwhash_OPSLIMIT_INTERACTIVE
-  const memlimit = sodium.crypto_pwhash_MEMLIMIT_INTERACTIVE
-  const algo = sodium.crypto_pwhash_ALG_DEFAULT
-
-  sodium.crypto_pwhash(
-    descryptionKey,
-    Buffer.from(password),
-    salt,
-    opslimit,
-    memlimit,
-    algo
-  )
+  const decryptionKey = sodium.sodium_malloc(sodium.crypto_secretbox_KEYBYTES)
+  Buffer.from(data.decryptionKey, 'hex').copy(decryptionKey)
 
   const plainText = Buffer.alloc(
     ciphertext.length - sodium.crypto_secretbox_MACBYTES
@@ -38,7 +24,7 @@ export const decryptVaultKey = (data) => {
       plainText,
       ciphertext,
       nonce,
-      descryptionKey
+      decryptionKey
     )
   ) {
     return undefined

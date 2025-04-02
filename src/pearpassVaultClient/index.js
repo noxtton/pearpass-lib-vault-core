@@ -16,6 +16,7 @@ import {
   ENCRYPTION_DECRYPT_VAULT_KEY,
   ENCRYPTION_ENCRYPT_VAULT_KEY,
   ENCRYPTION_GET,
+  ENCRYPTION_GET_DECRYPTION_KEY,
   ENCRYPTION_GET_STATUS,
   ENCRYPTION_INIT,
   INIT_LISTENER,
@@ -24,6 +25,7 @@ import {
   STORAGE_PATH_SET,
   VAULTS_ADD,
   VAULTS_CLOSE,
+  VAULTS_GET,
   VAULTS_GET_STATUS,
   VAULTS_INIT,
   VAULTS_LIST
@@ -132,6 +134,26 @@ export class PearpassVaultClient extends EventEmitter {
       return JSON.parse(res)
     } catch (error) {
       this._logger.error('Error getting vaults status:', error)
+    }
+  }
+
+  async vaultsGet(key) {
+    try {
+      const req = this.rpc.request(VAULTS_GET)
+
+      this._logger.log('Getting from vaults:', key)
+
+      await req.send(JSON.stringify({ key }))
+
+      const res = await req.reply('utf8')
+
+      this._logger.log('Vaults:', res)
+
+      const parsedRed = JSON.parse(res)
+
+      return parsedRed.data
+    } catch (error) {
+      this._logger.error('Error getting from vaults:', error)
     }
   }
 
@@ -467,23 +489,49 @@ export class PearpassVaultClient extends EventEmitter {
     }
   }
 
-  async decryptVaultKey({ ciphertext, nonce, salt, password }) {
+  async getDecryptionKey({ salt, password }) {
     try {
-      const req = this.rpc.request(ENCRYPTION_DECRYPT_VAULT_KEY)
+      const req = this.rpc.request(ENCRYPTION_GET_DECRYPTION_KEY)
 
-      this._logger.log('Decrypting vault key', {
-        ciphertext,
-        nonce,
+      this._logger.log('Getting decryption key', {
         salt,
         password
       })
 
       await req.send(
         JSON.stringify({
-          ciphertext,
-          nonce,
           salt,
           password
+        })
+      )
+
+      const res = await req.reply('utf8')
+
+      const parsedRes = JSON.parse(res)
+
+      this._logger.log('Decryption key', parsedRes)
+
+      return parsedRes.data
+    } catch (error) {
+      this._logger.error('Error getting decryption:', error)
+    }
+  }
+
+  async decryptVaultKey({ ciphertext, nonce, decryptionKey }) {
+    try {
+      const req = this.rpc.request(ENCRYPTION_DECRYPT_VAULT_KEY)
+
+      this._logger.log('Decrypting vault key', {
+        ciphertext,
+        nonce,
+        decryptionKey
+      })
+
+      await req.send(
+        JSON.stringify({
+          ciphertext,
+          nonce,
+          decryptionKey
         })
       )
 

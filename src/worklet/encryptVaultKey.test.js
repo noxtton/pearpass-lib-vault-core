@@ -37,9 +37,11 @@ describe('encryptVaultKey', () => {
     expect(result).toHaveProperty('ciphertext')
     expect(result).toHaveProperty('nonce')
     expect(result).toHaveProperty('salt')
+    expect(result).toHaveProperty('decryptionKey')
     expect(typeof result.ciphertext).toBe('string')
     expect(typeof result.nonce).toBe('string')
     expect(typeof result.salt).toBe('string')
+    expect(typeof result.decryptionKey).toBe('string')
   })
 
   test('should generate random nonce, salt, and encryption key', () => {
@@ -80,5 +82,6 @@ describe('encryptVaultKey', () => {
     expect(() => Buffer.from(result.ciphertext, 'base64')).not.toThrow()
     expect(() => Buffer.from(result.nonce, 'base64')).not.toThrow()
     expect(() => Buffer.from(result.salt, 'base64')).not.toThrow()
+    expect(() => Buffer.from(result.decryptionKey, 'hex')).not.toThrow()
   })
 })
