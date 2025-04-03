@@ -1,8 +1,8 @@
 import sodium from 'sodium-native'
 
 import { decryptVaultKey } from './decryptVaultKey'
-import { encryptVaultKey } from './encryptVaultKey'
-import { getDecryptionKey } from './getDecryptionKey'
+import { encryptVaultKeyWithHashedPassword } from './encryptVaultKeyWithHashedPassword'
+import { hashPassword } from './hashPassword'
 
 jest.mock('sodium-native', () => ({
   crypto_secretbox_KEYBYTES: 32,
@@ -41,7 +41,7 @@ describe('decryptVaultKey', () => {
     const data = {
       ciphertext: Buffer.alloc(48).fill('a').toString('base64'),
       nonce: Buffer.alloc(24).fill('b').toString('base64'),
-      decryptionKey: 'mySecureKey'
+      hashedPassword: 'mySecureKey'
     }
 
     const result = decryptVaultKey(data)
@@ -55,7 +55,7 @@ describe('decryptVaultKey', () => {
     const data = {
       ciphertext: Buffer.alloc(48).fill('a').toString('base64'),
       nonce: Buffer.alloc(24).fill('b').toString('base64'),
-      decryptionKey: 'wrongSecureKey'
+      hashedPassword: 'wrongSecureKey'
     }
 
     const result = decryptVaultKey(data)
@@ -68,7 +68,7 @@ describe('decryptVaultKey', () => {
     const data = {
       ciphertext: Buffer.alloc(64).fill('x').toString('base64'),
       nonce: Buffer.alloc(24).fill('y').toString('base64'),
-      decryptionKey: 'wrongSecureKey'
+      hashedPassword: 'wrongSecureKey'
     }
 
     decryptVaultKey(data)
@@ -100,15 +100,14 @@ describe('decryptVaultKey', () => {
       }
     )
 
-    const encryptedData = encryptVaultKey(originalPassword)
-    const decryptionKey = getDecryptionKey({
-      salt: encryptedData.salt,
-      password: originalPassword
-    })
+    const { hashedPassword } = hashPassword(originalPassword)
+    const { ciphertext, nonce } =
+      encryptVaultKeyWithHashedPassword(hashedPassword)
+
     const decryptedKey = decryptVaultKey({
-      ciphertext: encryptedData.ciphertext,
-      nonce: encryptedData.nonce,
-      decryptionKey
+      ciphertext: ciphertext,
+      nonce: nonce,
+      hashedPassword
     })
 
     expect(decryptedKey).toBeDefined()

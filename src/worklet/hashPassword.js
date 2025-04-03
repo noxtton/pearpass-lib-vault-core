@@ -1,15 +1,17 @@
 import sodium from 'sodium-native'
 
 /**
- * @param {{
+ *
+ * @param {string} password
+ * @returns {{
  *   salt: string
- *   password: string
- * }} data
- * @returns {string | undefined}
+ *   hashedPassword: string
+ * }}
  */
-export const getDecryptionKey = (data) => {
-  const salt = Buffer.from(data.salt, 'base64')
-  const password = Buffer.from(data.password)
+export const hashPassword = (password) => {
+  const salt = Buffer.alloc(sodium.crypto_pwhash_SALTBYTES)
+
+  sodium.randombytes_buf(salt)
 
   const hashedPassword = sodium.sodium_malloc(sodium.crypto_secretbox_KEYBYTES)
 
@@ -26,7 +28,8 @@ export const getDecryptionKey = (data) => {
     algo
   )
 
-  const decryptionKeyHex = Buffer.from(hashedPassword).toString('hex')
-
-  return decryptionKeyHex
+  return {
+    hashedPassword: Buffer.from(hashedPassword).toString('hex'),
+    salt: salt.toString('base64')
+  }
 }

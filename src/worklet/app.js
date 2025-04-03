@@ -23,7 +23,9 @@ import {
   ENCRYPTION_GET,
   ENCRYPTION_ADD,
   ENCRYPTION_CLOSE,
-  ENCRYPTION_ENCRYPT_VAULT_KEY,
+  ENCRYPTION_ENCRYPT_VAULT_KEY_WITH_HASHED_PASSWORD,
+  ENCRYPTION_ENCRYPT_VAULT_WITH_KEY,
+  ENCRYPTION_HASH_PASSWORD,
   ENCRYPTION_DECRYPT_VAULT_KEY,
   ENCRYPTION_GET_DECRYPTION_KEY,
   VAULTS_GET
@@ -53,8 +55,10 @@ import {
   vaultsGet
 } from './appDeps'
 import { decryptVaultKey } from './decryptVaultKey'
-import { encryptVaultKey } from './encryptVaultKey'
+import { encryptVaultKeyWithHashedPassword } from './encryptVaultKeyWithHashedPassword'
+import { encryptVaultWithKey } from './encryptVaultWithKey'
 import { getDecryptionKey } from './getDecryptionKey'
+import { hashPassword } from './hashPassword'
 
 export const handleRpcCommand = async (req) => {
   const data = req?.data ? JSON.parse(req?.data) : undefined
@@ -265,9 +269,9 @@ export const handleRpcCommand = async (req) => {
       try {
         const inviteCode = data.inviteCode
 
-        const vault = await pair(inviteCode)
+        const { vaultId, encryptionKey } = await pair(inviteCode)
 
-        req.reply(JSON.stringify({ data: vault }))
+        req.reply(JSON.stringify({ data: { vaultId, encryptionKey } }))
       } catch (error) {
         req.reply(
           JSON.stringify({
@@ -356,15 +360,45 @@ export const handleRpcCommand = async (req) => {
 
       break
 
-    case ENCRYPTION_ENCRYPT_VAULT_KEY:
+    case ENCRYPTION_HASH_PASSWORD:
       try {
-        const res = encryptVaultKey(data.password)
+        const res = hashPassword(data.password)
 
         req.reply(JSON.stringify({ data: res }))
       } catch (error) {
         req.reply(
           JSON.stringify({
-            error: `Error encrypting vault key: ${error}`
+            error: `Error hashPassword: ${error}`
+          })
+        )
+      }
+
+      break
+
+    case ENCRYPTION_ENCRYPT_VAULT_KEY_WITH_HASHED_PASSWORD:
+      try {
+        const res = encryptVaultKeyWithHashedPassword(data.hashedPassword)
+
+        req.reply(JSON.stringify({ data: res }))
+      } catch (error) {
+        req.reply(
+          JSON.stringify({
+            error: `Error encryptVaultKeyWithHashedPassword: ${error}`
+          })
+        )
+      }
+
+      break
+
+    case ENCRYPTION_ENCRYPT_VAULT_WITH_KEY:
+      try {
+        const res = encryptVaultWithKey(data.hashedPassword, data.key)
+
+        req.reply(JSON.stringify({ data: res }))
+      } catch (error) {
+        req.reply(
+          JSON.stringify({
+            error: `Error encryptVaultWithKey: ${error}`
           })
         )
       }
@@ -375,16 +409,16 @@ export const handleRpcCommand = async (req) => {
       try {
         const { salt, password } = data
 
-        const decryptionKey = getDecryptionKey({
+        const hashedPassword = getDecryptionKey({
           password,
           salt
         })
 
-        req.reply(JSON.stringify({ data: decryptionKey }))
+        req.reply(JSON.stringify({ data: hashedPassword }))
       } catch (error) {
         req.reply(
           JSON.stringify({
-            error: `Error decrypting vault key: ${error}`
+            error: `Error getDecryptionKey: ${error}`
           })
         )
       }
@@ -393,12 +427,12 @@ export const handleRpcCommand = async (req) => {
 
     case ENCRYPTION_DECRYPT_VAULT_KEY:
       try {
-        const { ciphertext, nonce, decryptionKey } = data
+        const { ciphertext, nonce, hashedPassword } = data
 
         const res = decryptVaultKey({
           ciphertext,
           nonce,
-          decryptionKey
+          hashedPassword
         })
 
         req.reply(JSON.stringify({ data: res }))

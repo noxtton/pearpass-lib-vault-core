@@ -67,6 +67,8 @@ export const pairInstance = async (path, invite) => {
   await instance.ready()
 
   await instance.close()
+
+  return instance.encryptionKey.toString('base64')
 }
 
 /**
@@ -91,7 +93,9 @@ export const pairActiveVaultInstance = async (vaultId, inviteKey) => {
     await closeActiveVaultInstance()
   }
 
-  await pairInstance(`vault/${vaultId}`, inviteKey)
+  const encryptionKey = await pairInstance(`vault/${vaultId}`, inviteKey)
+
+  return encryptionKey
 }
 
 /**
@@ -368,15 +372,9 @@ export const createInvite = async () => {
 export const pair = async (inviteCode) => {
   const [vaultId, inviteKey] = inviteCode.split('/')
 
-  await pairActiveVaultInstance(vaultId, inviteKey)
+  const encryptionKey = await pairActiveVaultInstance(vaultId, inviteKey)
 
-  await initActiveVaultInstance(vaultId)
-
-  const vault = await activeVaultInstance.get('vault')
-
-  await vaultsInstance.add(`vault/${vaultId}`, vault)
-
-  return vault
+  return { vaultId, encryptionKey }
 }
 
 /**

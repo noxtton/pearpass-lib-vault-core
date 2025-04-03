@@ -21,6 +21,9 @@ jest.mock('autopass', () => {
       remove: jest.fn().mockResolvedValue(),
       get: jest.fn().mockResolvedValue({ id: 'vault-id' }),
       createInvite: jest.fn().mockResolvedValue('invite-code'),
+      encryptionKey: {
+        toString: jest.fn().mockReturnValue('encryption-key')
+      },
       list: jest.fn().mockResolvedValue({
         on: (event, callback) => {
           if (event === 'data') {
@@ -45,6 +48,9 @@ jest.mock('autopass', () => {
     remove: jest.fn().mockResolvedValue(),
     get: jest.fn().mockResolvedValue({ id: 'vault-id' }),
     createInvite: jest.fn().mockResolvedValue('invite-code'),
+    encryptionKey: {
+      toString: jest.fn().mockReturnValue('encryption-key')
+    },
     list: jest.fn().mockResolvedValue({
       on: (event, callback) => {
         if (event === 'data') {
@@ -169,7 +175,8 @@ describe('appDeps module functions (excluding encryption)', () => {
           get: jest.fn().mockResolvedValue({ id: 'vault-id' }),
           createInvite: jest.fn().mockResolvedValue('invite-code'),
           removeAllListeners: jest.fn(),
-          on: jest.fn()
+          on: jest.fn(),
+          encryptionKey: jest.fn().mockResolvedValue('encryption-key')
         }
       )
     })
@@ -288,8 +295,11 @@ describe('appDeps module functions (excluding encryption)', () => {
     test('pair calls pair with invite code and returns vault id', async () => {
       await appDeps.setStoragePath('file://base')
       await appDeps.vaultsInit('any-password')
-      const result = await appDeps.pair('invite-code')
-      expect(result.id).toBe('vault-id')
+      const { vaultId, encryptionKey } = await appDeps.pair(
+        'vault-id/invite-code'
+      )
+      expect(vaultId).toBe('vault-id')
+      expect(encryptionKey).toBe('encryption-key')
     })
   })
 

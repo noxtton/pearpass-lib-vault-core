@@ -14,10 +14,12 @@ import {
   ENCRYPTION_ADD,
   ENCRYPTION_CLOSE,
   ENCRYPTION_DECRYPT_VAULT_KEY,
-  ENCRYPTION_ENCRYPT_VAULT_KEY,
+  ENCRYPTION_ENCRYPT_VAULT_KEY_WITH_HASHED_PASSWORD,
+  ENCRYPTION_ENCRYPT_VAULT_WITH_KEY,
   ENCRYPTION_GET,
   ENCRYPTION_GET_DECRYPTION_KEY,
   ENCRYPTION_GET_STATUS,
+  ENCRYPTION_HASH_PASSWORD,
   ENCRYPTION_INIT,
   INIT_LISTENER,
   ON_UPDATE,
@@ -469,11 +471,11 @@ export class PearpassVaultClient extends EventEmitter {
     }
   }
 
-  async encryptVaultKey(password) {
+  async hashPassword(password) {
     try {
-      const req = this.rpc.request(ENCRYPTION_ENCRYPT_VAULT_KEY)
+      const req = this.rpc.request(ENCRYPTION_HASH_PASSWORD)
 
-      this._logger.log('Encrypting vault key', password)
+      this._logger.log(ENCRYPTION_HASH_PASSWORD, password)
 
       await req.send(JSON.stringify({ password }))
 
@@ -481,11 +483,67 @@ export class PearpassVaultClient extends EventEmitter {
 
       const parsedRes = JSON.parse(res)
 
-      this._logger.log('Vault key encrypted', parsedRes)
+      this._logger.log(ENCRYPTION_HASH_PASSWORD, 'done', parsedRes)
 
       return parsedRes.data
     } catch (error) {
-      this._logger.error('Error adding encryption:', error)
+      this._logger.error(ENCRYPTION_HASH_PASSWORD, 'Error', error)
+    }
+  }
+
+  async encryptVaultKeyWithHashedPassword(hashedPassword) {
+    try {
+      const req = this.rpc.request(
+        ENCRYPTION_ENCRYPT_VAULT_KEY_WITH_HASHED_PASSWORD
+      )
+
+      this._logger.log(
+        ENCRYPTION_ENCRYPT_VAULT_KEY_WITH_HASHED_PASSWORD,
+        hashedPassword
+      )
+
+      await req.send(JSON.stringify({ hashedPassword }))
+
+      const res = await req.reply('utf8')
+
+      const parsedRes = JSON.parse(res)
+
+      this._logger.log(
+        ENCRYPTION_ENCRYPT_VAULT_KEY_WITH_HASHED_PASSWORD,
+        'done',
+        parsedRes
+      )
+
+      return parsedRes.data
+    } catch (error) {
+      this._logger.error(
+        ENCRYPTION_ENCRYPT_VAULT_KEY_WITH_HASHED_PASSWORD,
+        'error',
+        error
+      )
+    }
+  }
+
+  async encryptVaultWithKey(hashedPassword, key) {
+    try {
+      const req = this.rpc.request(ENCRYPTION_ENCRYPT_VAULT_WITH_KEY)
+
+      this._logger.log(ENCRYPTION_ENCRYPT_VAULT_WITH_KEY, {
+        hashedPassword,
+        key
+      })
+
+      await req.send(JSON.stringify({ hashedPassword, key }))
+
+      const res = await req.reply('utf8')
+
+      const parsedRes = JSON.parse(res)
+
+      this._logger.log(ENCRYPTION_ENCRYPT_VAULT_WITH_KEY, 'done', parsedRes)
+
+      return parsedRes.data
+    } catch (error) {
+      this._logger.error(ENCRYPTION_ENCRYPT_VAULT_WITH_KEY, 'Error', error)
     }
   }
 
@@ -517,21 +575,21 @@ export class PearpassVaultClient extends EventEmitter {
     }
   }
 
-  async decryptVaultKey({ ciphertext, nonce, decryptionKey }) {
+  async decryptVaultKey({ ciphertext, nonce, hashedPassword }) {
     try {
       const req = this.rpc.request(ENCRYPTION_DECRYPT_VAULT_KEY)
 
       this._logger.log('Decrypting vault key', {
         ciphertext,
         nonce,
-        decryptionKey
+        hashedPassword
       })
 
       await req.send(
         JSON.stringify({
           ciphertext,
           nonce,
-          decryptionKey
+          hashedPassword
         })
       )
 
