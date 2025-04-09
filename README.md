@@ -1,4 +1,4 @@
-# pearpass-lib-vault-bare
+# pearpass-lib-vault-mobile
 
 A bare runtime focused library for managing encrypted password vaults for Pearpass. This library provides a secure way to store, encrypt, and manage password vaults.
 
@@ -21,14 +21,14 @@ A bare runtime focused library for managing encrypted password vaults for Pearpa
 ## Installation
 
 ```bash
-npm install pearpass-lib-vault-bare
+npm install pearpass-lib-vault-mobile
 ```
 
 ## Usage Examples
 
 ### Initialize a vault client
 ```javascript
-import { createPearpassVaultClient } from 'pearpass-lib-vault-bare';
+import { createPearpassVaultClient } from 'pearpass-lib-vault-mobile';
 
 // Create a new client with a storage path
 const client = createPearpassVaultClient('/path/to/storage', {

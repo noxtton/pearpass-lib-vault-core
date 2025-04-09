@@ -1,5 +1,5 @@
 {
-  "name": "pearpass-lib-vault-bare",
+  "name": "pearpass-lib-vault-mobile",
   "version": "0.0.34",
   "type": "module",
   "description": "A bare wrapper for vault management library",
