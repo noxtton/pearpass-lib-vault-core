@@ -46,7 +46,7 @@ jest.mock('autopass', () => {
     close: jest.fn().mockResolvedValue(),
     add: jest.fn().mockResolvedValue(),
     remove: jest.fn().mockResolvedValue(),
-    get: jest.fn().mockResolvedValue({ id: 'vault-id' }),
+    get: jest.fn().mockResolvedValue(JSON.stringify({ id: 'vault-id' })),
     createInvite: jest.fn().mockResolvedValue('invite-code'),
     encryptionKey: {
       toString: jest.fn().mockReturnValue('encryption-key')
@@ -73,8 +73,8 @@ jest.mock('autopass', () => {
   return mockAutopass
 })
 
-jest.mock('corestore', () => {
-  return jest.fn().mockImplementation(() => ({
+jest.mock('corestore', () =>
+  jest.fn().mockImplementation(() => ({
     ready: jest.fn().mockResolvedValue(),
     close: jest.fn().mockResolvedValue(),
     add: jest.fn().mockResolvedValue(),
@@ -94,16 +94,16 @@ jest.mock('corestore', () => {
       }
     })
   }))
-})
+)
 
-jest.mock('bare-rpc', () => {
-  return jest.fn().mockImplementation(() => ({
+jest.mock('bare-rpc', () =>
+  jest.fn().mockImplementation(() => ({
     request: jest.fn().mockReturnValue({
       send: jest.fn().mockResolvedValue(),
       reply: jest.fn().mockResolvedValue('{}')
     })
   }))
-})
+)
 
 import * as appDeps from './appDeps'
 
@@ -207,7 +207,10 @@ describe('appDeps module functions (excluding encryption)', () => {
       mockInstance.add = jest.fn().mockResolvedValue()
 
       await appDeps.activeVaultAdd('key1', { data: 'test' })
-      expect(mockInstance.add).toHaveBeenCalledWith('key1', { data: 'test' })
+      expect(mockInstance.add).toHaveBeenCalledWith(
+        'key1',
+        JSON.stringify({ data: 'test' })
+      )
     })
 
     test('vaultsGet calls get on vaultInstance and returns result', async () => {
@@ -226,7 +229,10 @@ describe('appDeps module functions (excluding encryption)', () => {
       mockInstance.add = jest.fn().mockResolvedValue()
 
       await appDeps.vaultsAdd('key2', { data: 'test' })
-      expect(mockInstance.add).toHaveBeenCalledWith('key2', { data: 'test' })
+      expect(mockInstance.add).toHaveBeenCalledWith(
+        'key2',
+        JSON.stringify({ data: 'test' })
+      )
     })
 
     test('vaultRemove calls remove on activeVaultInstance', async () => {

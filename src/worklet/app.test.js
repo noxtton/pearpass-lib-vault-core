@@ -75,45 +75,41 @@ jest.mock('./hashPassword', () => ({
   hashPassword: jest.fn()
 }))
 
-jest.mock('bare-rpc', () => {
-  return jest.fn().mockImplementation((ipc, callback) => {
-    return {
-      _callback: callback,
-      request: jest.fn()
-    }
-  })
-})
+jest.mock('bare-rpc', () =>
+  jest.fn().mockImplementation((ipc, callback) => ({
+    _callback: callback,
+    request: jest.fn()
+  }))
+)
 
-jest.mock('./appDeps', () => {
-  return {
-    vaultsInit: jest.fn().mockResolvedValue(true),
-    setStoragePath: jest.fn(),
-    encryptionClose: jest.fn().mockResolvedValue(),
-    closeVaultsInstance: jest.fn().mockResolvedValue(),
-    vaultsAdd: jest.fn().mockResolvedValue(),
-    vaultsGet: jest.fn().mockResolvedValue({}),
-    vaultsList: jest.fn().mockResolvedValue([]),
-    activeVaultInit: jest.fn().mockResolvedValue(),
-    activeVaultClose: jest.fn().mockResolvedValue(),
-    activeVaultAdd: jest.fn().mockResolvedValue(),
-    initActiveVaultInstance: jest.fn().mockResolvedValue(),
-    closeActiveVaultInstance: jest.fn().mockResolvedValue(),
-    vaultRemove: jest.fn().mockResolvedValue(),
-    activeVaultList: jest.fn().mockResolvedValue([]),
-    activeVaultGet: jest.fn().mockResolvedValue({}),
-    createInvite: jest.fn().mockResolvedValue('invite-code'),
-    pair: jest.fn().mockResolvedValue({}),
-    initListener: jest.fn().mockResolvedValue(),
-    encryptionInit: jest.fn().mockResolvedValue(),
-    encryptionGet: jest.fn().mockResolvedValue({}),
-    encryptionAdd: jest.fn().mockResolvedValue(),
-    initInstance: jest.fn().mockResolvedValue(),
-    buildPath: jest.fn().mockReturnValue('/test/path'),
-    getIsVaultsInitialized: jest.fn().mockReturnValue(false),
-    getIsActiveVaultInitialized: jest.fn().mockReturnValue(false),
-    getIsEncryptionInitialized: jest.fn().mockReturnValue(false)
-  }
-})
+jest.mock('./appDeps', () => ({
+  vaultsInit: jest.fn().mockResolvedValue(true),
+  setStoragePath: jest.fn(),
+  encryptionClose: jest.fn().mockResolvedValue(),
+  closeVaultsInstance: jest.fn().mockResolvedValue(),
+  vaultsAdd: jest.fn().mockResolvedValue(),
+  vaultsGet: jest.fn().mockResolvedValue({}),
+  vaultsList: jest.fn().mockResolvedValue([]),
+  activeVaultInit: jest.fn().mockResolvedValue(),
+  activeVaultClose: jest.fn().mockResolvedValue(),
+  activeVaultAdd: jest.fn().mockResolvedValue(),
+  initActiveVaultInstance: jest.fn().mockResolvedValue(),
+  closeActiveVaultInstance: jest.fn().mockResolvedValue(),
+  vaultRemove: jest.fn().mockResolvedValue(),
+  activeVaultList: jest.fn().mockResolvedValue([]),
+  activeVaultGet: jest.fn().mockResolvedValue({}),
+  createInvite: jest.fn().mockResolvedValue('invite-code'),
+  pair: jest.fn().mockResolvedValue({}),
+  initListener: jest.fn().mockResolvedValue(),
+  encryptionInit: jest.fn().mockResolvedValue(),
+  encryptionGet: jest.fn().mockResolvedValue({}),
+  encryptionAdd: jest.fn().mockResolvedValue(),
+  initInstance: jest.fn().mockResolvedValue(),
+  buildPath: jest.fn().mockReturnValue('/test/path'),
+  getIsVaultsInitialized: jest.fn().mockReturnValue(false),
+  getIsActiveVaultInitialized: jest.fn().mockReturnValue(false),
+  getIsEncryptionInitialized: jest.fn().mockReturnValue(false)
+}))
 
 describe('RPC handler', () => {
   let mockRequest

@@ -29,15 +29,13 @@ import {
   ENCRYPTION_ENCRYPT_VAULT_WITH_KEY
 } from '../worklet/api'
 
-jest.mock('bare-rpc', () => {
-  return jest.fn().mockImplementation((ipc, callback) => {
-    return {
-      IPC: ipc,
-      _callback: callback,
-      request: jest.fn()
-    }
-  })
-})
+jest.mock('bare-rpc', () =>
+  jest.fn().mockImplementation((ipc, callback) => ({
+    IPC: ipc,
+    _callback: callback,
+    request: jest.fn()
+  }))
+)
 
 describe('PearpassVaultClient', () => {
   let client, fakeWorklet
