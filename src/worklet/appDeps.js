@@ -110,13 +110,15 @@ export const collectValuesByFilter = async (instance, filterFn) => {
 
   return new Promise((resolve, reject) => {
     stream.on('data', ({ key, value }) => {
+      const parsedValue = JSON.parse(value)
+
       if (!filterFn) {
-        results.push(value)
+        results.push(parsedValue)
         return
       }
 
       if (filterFn(key)) {
-        results.push(value)
+        results.push(parsedValue)
       }
     })
 
@@ -214,7 +216,9 @@ export const encryptionGet = async (key) => {
 
   const res = await encryptionInstance.get(key)
 
-  return res
+  const parsedRes = JSON.parse(res)
+
+  return parsedRes
 }
 
 /**
@@ -227,7 +231,7 @@ export const encryptionAdd = async (key, data) => {
     throw new Error('Encryption not initialised')
   }
 
-  await encryptionInstance.add(key, data)
+  await encryptionInstance.add(key, JSON.stringify(data))
 }
 
 /**
@@ -262,7 +266,7 @@ export const activeVaultAdd = async (key, data) => {
     throw new Error('Vault not initialised')
   }
 
-  await activeVaultInstance.add(key, data)
+  await activeVaultInstance.add(key, JSON.stringify(data))
 }
 
 /**
@@ -276,7 +280,9 @@ export const vaultsGet = async (key) => {
 
   const res = await vaultsInstance.get(key)
 
-  return res
+  const parsedRes = JSON.parse(res)
+
+  return parsedRes
 }
 
 /**
@@ -289,7 +295,7 @@ export const vaultsAdd = async (key, data) => {
     throw new Error('Vault not initialised')
   }
 
-  await vaultsInstance.add(key, data)
+  await vaultsInstance.add(key, JSON.stringify(data))
 }
 
 /**
@@ -312,13 +318,10 @@ export const vaultsList = async (filterKey) => {
     throw new Error('Vaults not initialised')
   }
 
-  if (filterKey) {
-    return collectValuesByFilter(vaultsInstance, (key) =>
-      key.startsWith(filterKey)
-    )
-  }
-
-  return collectValuesByFilter(vaultsInstance)
+  return collectValuesByFilter(
+    vaultsInstance,
+    filterKey ? (key) => key.startsWith(filterKey) : undefined
+  )
 }
 
 /**
@@ -329,13 +332,10 @@ export const activeVaultList = async (filterKey) => {
     throw new Error('Vault not initialised')
   }
 
-  if (filterKey) {
-    return collectValuesByFilter(activeVaultInstance, (key) =>
-      key.startsWith(filterKey)
-    )
-  }
-
-  return collectValuesByFilter(activeVaultInstance)
+  return collectValuesByFilter(
+    activeVaultInstance,
+    filterKey ? (key) => key.startsWith(filterKey) : undefined
+  )
 }
 
 /**
@@ -349,7 +349,9 @@ export const activeVaultGet = async (key) => {
 
   const res = await activeVaultInstance.get(key)
 
-  return res
+  const parsedRes = JSON.parse(res)
+
+  return parsedRes
 }
 
 /**
@@ -360,7 +362,13 @@ export const createInvite = async () => {
 
   const vault = await activeVaultInstance.get('vault')
 
-  const vaultId = vault.id
+  if (!vault) {
+    throw new Error('Vault not found')
+  }
+
+  const parsedVault = JSON.parse(vault)
+
+  const vaultId = parsedVault.id
 
   return `${vaultId}/${inviteCode}`
 }
