@@ -404,3 +404,24 @@ export const initListener = async ({ vaultId, onUpdate }) => {
 
   listeningVaultId = vaultId
 }
+
+/**
+ * @returns {Array<void>}
+ */
+export const closeAllInstances = () => {
+  const closeTasks = []
+
+  if (getActiveVaultInstance()) {
+    closeTasks.push(closeActiveVaultInstance())
+  }
+
+  if (getVaultsInstance()) {
+    closeTasks.push(closeVaultsInstance())
+  }
+
+  if (encryptionGet()) {
+    closeTasks.push(encryptionClose())
+  }
+
+  return closeTasks
+}
