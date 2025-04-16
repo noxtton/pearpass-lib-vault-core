@@ -1,6 +1,6 @@
 {
   "name": "pearpass-lib-vault-mobile",
-  "version": "0.0.37",
+  "version": "0.0.38",
   "type": "module",
   "description": "A bare wrapper for vault management library",
   "main": "src/index.js",
