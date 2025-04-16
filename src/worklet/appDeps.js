@@ -48,6 +48,11 @@ export const getActiveVaultInstance = () => activeVaultInstance
 export const getVaultsInstance = () => vaultsInstance
 
 /**
+ * @returns {Autopass}
+ **/
+export const getEncryptionInstance = () => encryptionInstance
+
+/**
  * @param {string} path
  * @returns {Promise<Autopass>}
  */
@@ -403,4 +408,25 @@ export const initListener = async ({ vaultId, onUpdate }) => {
   })
 
   listeningVaultId = vaultId
+}
+
+/**
+ * @returns {Promise<void>}
+ */
+export const closeAllInstances = async () => {
+  const closeTasks = []
+
+  if (isActiveVaultInitialized) {
+    closeTasks.push(closeActiveVaultInstance())
+  }
+
+  if (isVaultsInitialized) {
+    closeTasks.push(closeVaultsInstance())
+  }
+
+  if (isEncryptionInitialized) {
+    closeTasks.push(encryptionClose())
+  }
+
+  await Promise.all(closeTasks)
 }

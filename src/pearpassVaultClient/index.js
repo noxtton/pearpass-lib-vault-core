@@ -11,6 +11,7 @@ import {
   ACTIVE_VAULT_INIT,
   ACTIVE_VAULT_LIST,
   ACTIVE_VAULT_REMOVE,
+  CLOSE,
   ENCRYPTION_ADD,
   ENCRYPTION_CLOSE,
   ENCRYPTION_DECRYPT_VAULT_KEY,
@@ -618,6 +619,22 @@ export class PearpassVaultClient extends EventEmitter {
       this._logger.log('Encryption closed')
     } catch (error) {
       this._logger.error('Error closing encryption:', error)
+    }
+  }
+
+  async close() {
+    try {
+      const req = this.rpc.request(CLOSE)
+
+      this._logger.log('Closing instances...')
+
+      await req.send()
+
+      await req.reply('utf8')
+
+      this._logger.log('Instances closed')
+    } catch (error) {
+      this._logger.error('Error closing instances:', error)
     }
   }
 }

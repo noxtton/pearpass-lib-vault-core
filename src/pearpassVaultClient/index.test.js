@@ -26,7 +26,8 @@ import {
   VAULTS_GET,
   ENCRYPTION_HASH_PASSWORD,
   ENCRYPTION_ENCRYPT_VAULT_KEY_WITH_HASHED_PASSWORD,
-  ENCRYPTION_ENCRYPT_VAULT_WITH_KEY
+  ENCRYPTION_ENCRYPT_VAULT_WITH_KEY,
+  CLOSE
 } from '../worklet/api'
 
 jest.mock('bare-rpc', () =>
@@ -1004,6 +1005,48 @@ describe('PearpassVaultClient', () => {
       )
 
       consoleSpy.mockRestore()
+    })
+  })
+  describe('close', () => {
+    it('should send a close request and log success messages', async () => {
+      const mockSend = jest.fn().mockResolvedValue()
+      const mockReply = jest.fn().mockResolvedValue('done')
+
+      client.rpc.request.mockReturnValueOnce({
+        send: mockSend,
+        reply: mockReply
+      })
+
+      const logSpy = jest.spyOn(client._logger, 'log').mockImplementation()
+
+      await client.close()
+
+      expect(client.rpc.request).toHaveBeenCalledWith(CLOSE)
+      expect(mockSend).toHaveBeenCalled()
+      expect(mockReply).toHaveBeenCalledWith('utf8')
+      expect(logSpy).toHaveBeenCalledWith('Closing instances...')
+      expect(logSpy).toHaveBeenCalledWith('Instances closed')
+
+      logSpy.mockRestore()
+    })
+
+    it('should handle errors when closing instances', async () => {
+      const mockSend = jest.fn().mockRejectedValue(new Error('Close error'))
+
+      client.rpc.request.mockReturnValueOnce({
+        send: mockSend
+      })
+
+      const errorSpy = jest.spyOn(client._logger, 'error').mockImplementation()
+
+      await client.close()
+
+      expect(errorSpy).toHaveBeenCalledWith(
+        'Error closing instances:',
+        expect.any(Error)
+      )
+
+      errorSpy.mockRestore()
     })
   })
 })

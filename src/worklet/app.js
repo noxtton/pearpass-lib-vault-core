@@ -1,58 +1,60 @@
 import RPC from 'bare-rpc'
 
 import {
-  ACTIVE_VAULT_CLOSE,
-  VAULTS_CLOSE,
-  ACTIVE_VAULT_INIT,
-  VAULTS_INIT,
-  STORAGE_PATH_SET,
   ACTIVE_VAULT_ADD,
-  VAULTS_ADD,
-  ACTIVE_VAULT_REMOVE,
-  VAULTS_LIST,
-  ACTIVE_VAULT_LIST,
-  ACTIVE_VAULT_GET,
-  VAULTS_GET_STATUS,
-  ACTIVE_VAULT_GET_STATUS,
+  ACTIVE_VAULT_CLOSE,
   ACTIVE_VAULT_CREATE_INVITE,
-  PAIR,
-  INIT_LISTENER,
-  ON_UPDATE,
-  ENCRYPTION_INIT,
-  ENCRYPTION_GET_STATUS,
-  ENCRYPTION_GET,
+  ACTIVE_VAULT_GET,
+  ACTIVE_VAULT_GET_STATUS,
+  ACTIVE_VAULT_INIT,
+  ACTIVE_VAULT_LIST,
+  ACTIVE_VAULT_REMOVE,
+  CLOSE,
   ENCRYPTION_ADD,
   ENCRYPTION_CLOSE,
+  ENCRYPTION_DECRYPT_VAULT_KEY,
   ENCRYPTION_ENCRYPT_VAULT_KEY_WITH_HASHED_PASSWORD,
   ENCRYPTION_ENCRYPT_VAULT_WITH_KEY,
-  ENCRYPTION_HASH_PASSWORD,
-  ENCRYPTION_DECRYPT_VAULT_KEY,
+  ENCRYPTION_GET,
   ENCRYPTION_GET_DECRYPTION_KEY,
-  VAULTS_GET
+  ENCRYPTION_GET_STATUS,
+  ENCRYPTION_HASH_PASSWORD,
+  ENCRYPTION_INIT,
+  INIT_LISTENER,
+  ON_UPDATE,
+  PAIR,
+  STORAGE_PATH_SET,
+  VAULTS_ADD,
+  VAULTS_CLOSE,
+  VAULTS_GET,
+  VAULTS_GET_STATUS,
+  VAULTS_INIT,
+  VAULTS_LIST
 } from './api'
 import {
-  vaultsInit,
-  encryptionClose,
-  closeVaultsInstance,
-  vaultsAdd,
-  vaultsList,
   activeVaultAdd,
-  initActiveVaultInstance,
-  closeActiveVaultInstance,
-  vaultRemove,
-  activeVaultList,
   activeVaultGet,
+  activeVaultList,
+  closeActiveVaultInstance,
+  closeAllInstances,
+  closeVaultsInstance,
   createInvite,
-  pair,
-  initListener,
-  encryptionInit,
-  encryptionGet,
   encryptionAdd,
-  setStoragePath,
-  getIsVaultsInitialized,
+  encryptionClose,
+  encryptionGet,
+  encryptionInit,
   getIsActiveVaultInitialized,
   getIsEncryptionInitialized,
-  vaultsGet
+  getIsVaultsInitialized,
+  initActiveVaultInstance,
+  initListener,
+  pair,
+  setStoragePath,
+  vaultRemove,
+  vaultsAdd,
+  vaultsGet,
+  vaultsInit,
+  vaultsList
 } from './appDeps'
 import { decryptVaultKey } from './decryptVaultKey'
 import { encryptVaultKeyWithHashedPassword } from './encryptVaultKeyWithHashedPassword'
@@ -449,6 +451,21 @@ export const handleRpcCommand = async (req) => {
     case ENCRYPTION_CLOSE:
       try {
         await encryptionClose()
+
+        req.reply(JSON.stringify({ success: true }))
+      } catch (error) {
+        req.reply(
+          JSON.stringify({
+            error: `Error closing encryption: ${error}`
+          })
+        )
+      }
+
+      break
+
+    case CLOSE:
+      try {
+        await closeAllInstances()
 
         req.reply(JSON.stringify({ success: true }))
       } catch (error) {

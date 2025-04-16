@@ -320,4 +320,39 @@ describe('appDeps module functions (excluding encryption)', () => {
       expect(dummy.removeAllListeners).not.toHaveBeenCalled()
     })
   })
+
+  describe('closeAllInstances', () => {
+    beforeEach(() => {
+      jest.spyOn(appDeps, 'initInstance').mockResolvedValue(
+        appDeps.__dummyInstance || {
+          ready: jest.fn().mockResolvedValue(),
+          close: jest.fn().mockResolvedValue()
+        }
+      )
+    })
+    test('closeAllInstances closes all initialized instances', async () => {
+      await appDeps.setStoragePath('file://base')
+      await appDeps.initActiveVaultInstance('vault1')
+      await appDeps.vaultsInit('vault1')
+      await appDeps.encryptionInit('vault1')
+
+      const activeVault = appDeps.getActiveVaultInstance()
+      const vaults = appDeps.getVaultsInstance()
+      const encryption = appDeps.getEncryptionInstance()
+
+      const closeSpy1 = jest.spyOn(activeVault, 'close')
+      const closeSpy2 = jest.spyOn(vaults, 'close')
+      const closeSpy3 = jest.spyOn(encryption, 'close')
+
+      await appDeps.closeAllInstances()
+
+      expect(closeSpy1).toHaveBeenCalled()
+      expect(closeSpy2).toHaveBeenCalled()
+      expect(closeSpy3).toHaveBeenCalled()
+
+      expect(appDeps.getIsActiveVaultInitialized()).toBe(false)
+      expect(appDeps.getIsVaultsInitialized()).toBe(false)
+      expect(appDeps.getIsEncryptionInitialized()).toBe(false)
+    })
+  })
 })
