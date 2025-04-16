@@ -25,7 +25,8 @@ import {
   ENCRYPTION_GET_DECRYPTION_KEY,
   ENCRYPTION_ENCRYPT_VAULT_KEY_WITH_HASHED_PASSWORD,
   ENCRYPTION_HASH_PASSWORD,
-  ENCRYPTION_ENCRYPT_VAULT_WITH_KEY
+  ENCRYPTION_ENCRYPT_VAULT_WITH_KEY,
+  CLOSE
 } from './api'
 import { handleRpcCommand } from './app'
 import {
@@ -47,7 +48,8 @@ import {
   encryptionGet,
   encryptionAdd,
   getIsActiveVaultInitialized,
-  vaultsGet
+  vaultsGet,
+  closeAllInstances
 } from './appDeps'
 import { decryptVaultKey } from './decryptVaultKey'
 import { encryptVaultKeyWithHashedPassword } from './encryptVaultKeyWithHashedPassword'
@@ -108,7 +110,8 @@ jest.mock('./appDeps', () => ({
   buildPath: jest.fn().mockReturnValue('/test/path'),
   getIsVaultsInitialized: jest.fn().mockReturnValue(false),
   getIsActiveVaultInitialized: jest.fn().mockReturnValue(false),
-  getIsEncryptionInitialized: jest.fn().mockReturnValue(false)
+  getIsEncryptionInitialized: jest.fn().mockReturnValue(false),
+  closeAllInstances: jest.fn().mockResolvedValue()
 }))
 
 describe('RPC handler', () => {
@@ -549,6 +552,32 @@ describe('RPC handler', () => {
     expect(mockRequest.reply).toHaveBeenCalledWith(
       JSON.stringify({
         error: 'Error decrypting vault key: Error: Decryption failed'
+      })
+    )
+  })
+
+  test('should handle CLOSE command', async () => {
+    mockRequest.command = CLOSE
+
+    await handleRpcCommand(mockRequest)
+
+    expect(closeAllInstances).toHaveBeenCalled()
+    expect(mockRequest.reply).toHaveBeenCalledWith(
+      JSON.stringify({ success: true })
+    )
+  })
+
+  test('should handle error in CLOSE command', async () => {
+    const errorMessage = 'Something went wrong'
+    closeAllInstances.mockRejectedValueOnce(new Error(errorMessage))
+
+    mockRequest.command = CLOSE
+
+    await handleRpcCommand(mockRequest)
+
+    expect(mockRequest.reply).toHaveBeenCalledWith(
+      JSON.stringify({
+        error: `Error closing encryption: Error: ${errorMessage}`
       })
     )
   })

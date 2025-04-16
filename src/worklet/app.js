@@ -465,9 +465,7 @@ export const handleRpcCommand = async (req) => {
 
     case CLOSE:
       try {
-        const promises = closeAllInstances()
-
-        await Promise.all(promises)
+        await closeAllInstances()
 
         req.reply(JSON.stringify({ success: true }))
       } catch (error) {
