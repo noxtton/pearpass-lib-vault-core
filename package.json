@@ -20,7 +20,7 @@
     "events": "3.3.0",
     "expo-asset": "11.0.4",
     "expo-file-system": "18.0.10",
-    "rocksdb-native": "^3.5.10",
+    "rocksdb-native": "3.5.10",
     "sodium-native": "5.0.1",
     "udx-native": "1.17.5"
   },
