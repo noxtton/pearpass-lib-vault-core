@@ -363,6 +363,7 @@ export const activeVaultGet = async (key) => {
  * @returns {Promise<string>}
  */
 export const createInvite = async () => {
+  await activeVaultInstance.deleteInvite()
   const inviteCode = await activeVaultInstance.createInvite()
 
   const vault = await activeVaultInstance.get('vault')
@@ -376,6 +377,19 @@ export const createInvite = async () => {
   const vaultId = parsedVault.id
 
   return `${vaultId}/${inviteCode}`
+}
+
+/**
+ * @returns {Promise<void>}
+ */
+export const deleteInvite = async () => {
+  await activeVaultInstance.deleteInvite()
+
+  const vault = await activeVaultInstance.get('vault')
+
+  if (!vault) {
+    throw new Error('Vault not found')
+  }
 }
 
 /**

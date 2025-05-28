@@ -48,6 +48,7 @@ jest.mock('autopass', () => {
     remove: jest.fn().mockResolvedValue(),
     get: jest.fn().mockResolvedValue(JSON.stringify({ id: 'vault-id' })),
     createInvite: jest.fn().mockResolvedValue('invite-code'),
+    deleteInvite: jest.fn().mockResolvedValue(),
     encryptionKey: {
       toString: jest.fn().mockReturnValue('encryption-key')
     },

@@ -3,7 +3,7 @@ import RPC from 'bare-rpc'
 import {
   ACTIVE_VAULT_ADD,
   ACTIVE_VAULT_CLOSE,
-  ACTIVE_VAULT_CREATE_INVITE,
+  ACTIVE_VAULT_CREATE_INVITE, ACTIVE_VAULT_DELETE_INVITE,
   ACTIVE_VAULT_GET,
   ACTIVE_VAULT_GET_STATUS,
   ACTIVE_VAULT_INIT,
@@ -38,7 +38,7 @@ import {
   closeActiveVaultInstance,
   closeAllInstances,
   closeVaultsInstance,
-  createInvite,
+  createInvite, deleteInvite,
   encryptionAdd,
   encryptionClose,
   encryptionGet,
@@ -261,6 +261,21 @@ export const handleRpcCommand = async (req) => {
         req.reply(
           JSON.stringify({
             error: `Error creating invite from active vault: ${error}`
+          })
+        )
+      }
+
+      break
+
+    case ACTIVE_VAULT_DELETE_INVITE:
+      try {
+        await deleteInvite()
+
+        req.reply(JSON.stringify({ success: true }))
+      } catch (error) {
+        req.reply(
+          JSON.stringify({
+            error: `Error deleting invite from active vault: ${error}`
           })
         )
       }
