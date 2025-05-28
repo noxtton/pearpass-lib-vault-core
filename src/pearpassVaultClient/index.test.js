@@ -27,7 +27,7 @@ import {
   ENCRYPTION_HASH_PASSWORD,
   ENCRYPTION_ENCRYPT_VAULT_KEY_WITH_HASHED_PASSWORD,
   ENCRYPTION_ENCRYPT_VAULT_WITH_KEY,
-  CLOSE
+  CLOSE, ACTIVE_VAULT_DELETE_INVITE
 } from '../worklet/api'
 
 jest.mock('bare-rpc', () =>
@@ -360,6 +360,27 @@ describe('PearpassVaultClient', () => {
       expect(mockSend).toHaveBeenCalled()
       expect(mockReply).toHaveBeenCalledWith('utf8')
       expect(result).toEqual(responseObj.data)
+    })
+  })
+
+  describe('activeVaultDeleteInvite', () => {
+    it('should delete an invite and return success', async () => {
+      const responseObj = { success: true }
+      const replyData = JSON.stringify(responseObj)
+      const mockSend = jest.fn().mockResolvedValue()
+      const mockReply = jest.fn().mockResolvedValue(replyData)
+      client.rpc.request.mockReturnValueOnce({
+        send: mockSend,
+        reply: mockReply
+      })
+
+      const result = await client.activeVaultDeleteInvite()
+      expect(client.rpc.request).toHaveBeenCalledWith(
+        ACTIVE_VAULT_DELETE_INVITE
+      )
+      expect(mockSend).toHaveBeenCalled()
+      expect(mockReply).toHaveBeenCalledWith('utf8')
+      expect(result).toEqual(responseObj.success)
     })
   })
 

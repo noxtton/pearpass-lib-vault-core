@@ -25,9 +25,9 @@
     "udx-native": "1.17.5"
   },
   "peerDependencies": {
-    "autopass": "2.1.0",
+    "autopass": "^2.2.0",
     "bare-os": "3.6.0",
-    "corestore": "7.4.0",
+    "corestore": "^7.4.3",
     "react-native": "0.77.2",
     "react-native-bare-kit": "0.5.6"
   },

@@ -5,7 +5,7 @@ import RPC from 'bare-rpc'
 import {
   ACTIVE_VAULT_ADD,
   ACTIVE_VAULT_CLOSE,
-  ACTIVE_VAULT_CREATE_INVITE,
+  ACTIVE_VAULT_CREATE_INVITE, ACTIVE_VAULT_DELETE_INVITE,
   ACTIVE_VAULT_GET,
   ACTIVE_VAULT_GET_STATUS,
   ACTIVE_VAULT_INIT,
@@ -355,6 +355,26 @@ export class PearpassVaultClient extends EventEmitter {
       return parsedRes.data
     } catch (error) {
       this._logger.error('Error creating invite:', error)
+    }
+  }
+
+  async activeVaultDeleteInvite() {
+    try {
+      const req = this.rpc.request(ACTIVE_VAULT_DELETE_INVITE)
+
+      this._logger.log('Deleting invite...')
+
+      await req.send()
+
+      const res = await req.reply('utf8')
+
+      this._logger.log('Invite deleted:', res)
+
+      const parsedRes = JSON.parse(res)
+
+      return parsedRes.success
+    } catch (error) {
+      this._logger.error('Error deleting invite:', error)
     }
   }
 
