@@ -304,6 +304,47 @@ export const vaultsAdd = async (key, data) => {
 }
 
 /**
+ * @param {string} key
+ * @param {any} data
+ * @returns {Promise<void>}
+ */
+export const activeVaultAddFile = async (key, buffer) => {
+  if (!isActiveVaultInitialized) {
+    throw new Error('Vault not initialised')
+  }
+
+  await activeVaultInstance.addFile(key, buffer)
+}
+
+/**
+ * @param {string} key
+ * @returns {Promise<void>}
+ */
+export const activeVaultGetFile = async (key) => {
+  if (!isActiveVaultInitialized) {
+    throw new Error('Vault not initialised')
+  }
+
+  const res = await activeVaultInstance.getFile(key)
+
+  const parsedRes = JSON.parse(res)
+
+  return parsedRes
+}
+
+/**
+ * @param {string} key
+ * @returns {Promise<void>}
+ */
+export const activeVaultRemoveFile = async (key) => {
+  if (!isActiveVaultInitialized) {
+    throw new Error('Vault not initialised')
+  }
+
+  await activeVaultInstance.remove(key)
+}
+
+/**
  * @param {string} recordId
  * @returns {Promise<void>}
  */

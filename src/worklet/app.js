@@ -3,7 +3,11 @@ import RPC from 'bare-rpc'
 import {
   ACTIVE_VAULT_ADD,
   ACTIVE_VAULT_CLOSE,
-  ACTIVE_VAULT_CREATE_INVITE, ACTIVE_VAULT_DELETE_INVITE,
+  ACTIVE_VAULT_CREATE_INVITE,
+  ACTIVE_VAULT_DELETE_INVITE,
+  ACTIVE_VAULT_FILE_ADD,
+  ACTIVE_VAULT_FILE_GET,
+  ACTIVE_VAULT_FILE_REMOVE,
   ACTIVE_VAULT_GET,
   ACTIVE_VAULT_GET_STATUS,
   ACTIVE_VAULT_INIT,
@@ -33,12 +37,16 @@ import {
 } from './api'
 import {
   activeVaultAdd,
+  activeVaultAddFile,
   activeVaultGet,
+  activeVaultGetFile,
   activeVaultList,
+  activeVaultRemoveFile,
   closeActiveVaultInstance,
   closeAllInstances,
   closeVaultsInstance,
-  createInvite, deleteInvite,
+  createInvite,
+  deleteInvite,
   encryptionAdd,
   encryptionClose,
   encryptionGet,
@@ -63,7 +71,8 @@ import { getDecryptionKey } from './getDecryptionKey'
 import { hashPassword } from './hashPassword'
 
 export const handleRpcCommand = async (req) => {
-  const data = req?.data ? JSON.parse(req?.data) : undefined
+  const data =
+    typeof req?.data.type !== 'buffer' ? JSON.parse(req?.data) : req?.data
 
   switch (req.command) {
     case STORAGE_PATH_SET:
@@ -136,6 +145,58 @@ export const handleRpcCommand = async (req) => {
         req.reply(
           JSON.stringify({
             error: `Error adding vault: ${error}`
+          })
+        )
+      }
+
+      break
+
+    case ACTIVE_VAULT_FILE_ADD:
+      try {
+        const keyLength = data?.data.readUInt32BE(0)
+
+        const keyBuffer = data?.data.subarray(4, 4 + keyLength)
+        const key = Buffer.from(keyBuffer).toString('utf8')
+
+        const fileBuffer = data?.data.subarray(4 + keyLength)
+
+        await activeVaultAddFile(key, fileBuffer)
+
+        req.reply(JSON.stringify({ success: true }))
+      } catch (error) {
+        req.reply(
+          JSON.stringify({
+            error: `Error adding file to active vault: ${error}`
+          })
+        )
+      }
+
+      break
+
+    case ACTIVE_VAULT_FILE_GET:
+      try {
+        const file = await activeVaultGetFile(data?.key)
+
+        req.reply(JSON.stringify({ data: file }))
+      } catch (error) {
+        req.reply(
+          JSON.stringify({
+            error: `Error getting file from active vault: ${error}`
+          })
+        )
+      }
+
+      break
+
+    case ACTIVE_VAULT_FILE_REMOVE:
+      try {
+        await activeVaultRemoveFile(data?.key)
+
+        req.reply(JSON.stringify({ success: true }))
+      } catch (error) {
+        req.reply(
+          JSON.stringify({
+            error: `Error removing file from active vault: ${error}`
           })
         )
       }

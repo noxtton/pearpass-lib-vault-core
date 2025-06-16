@@ -1,3 +1,4 @@
+import { Buffer } from 'buffer'
 import EventEmitter from 'events'
 
 import RPC from 'bare-rpc'
@@ -5,7 +6,11 @@ import RPC from 'bare-rpc'
 import {
   ACTIVE_VAULT_ADD,
   ACTIVE_VAULT_CLOSE,
-  ACTIVE_VAULT_CREATE_INVITE, ACTIVE_VAULT_DELETE_INVITE,
+  ACTIVE_VAULT_CREATE_INVITE,
+  ACTIVE_VAULT_DELETE_INVITE,
+  ACTIVE_VAULT_FILE_ADD,
+  ACTIVE_VAULT_FILE_GET,
+  ACTIVE_VAULT_FILE_REMOVE,
   ACTIVE_VAULT_GET,
   ACTIVE_VAULT_GET_STATUS,
   ACTIVE_VAULT_INIT,
@@ -191,6 +196,77 @@ export class PearpassVaultClient extends EventEmitter {
       this._logger.log('Vault added:', { key, data: vault })
     } catch (error) {
       this._logger.error('Error adding vault:', error)
+    }
+  }
+
+  async activeVaultAddFile(key, buffer) {
+    try {
+      const req = this.rpc.request(ACTIVE_VAULT_FILE_ADD)
+
+      this._logger.log('Adding file to active vault:', {
+        key
+      })
+
+      console.log('current key is:', key)
+
+      const keyBuffer = Buffer.from(key, 'utf8')
+      const keyLengthBuffer = Buffer.alloc(4)
+      keyLengthBuffer.writeUInt32BE(keyBuffer.length, 0)
+
+      const combinedBuffer = Buffer.concat([keyLengthBuffer, keyBuffer, buffer])
+
+      // const keyLength = combinedBuffer?.readUInt32BE(0)
+
+      // const keyBufferExtracted = combinedBuffer?.subarray(4, 4 + keyLength)
+      // const extractedKey = Buffer.from(keyBufferExtracted).toString('utf8')
+
+      // console.log('Key extracted:', extractedKey)
+
+      await req.send(combinedBuffer)
+
+      this._logger.log(' 5', { key })
+
+      await req.reply('utf8')
+      this._logger.log(' 6', { key })
+    } catch (error) {
+      this._logger.error('Error adding file to active vault:', error)
+    }
+  }
+
+  async activeVaultGetFile(key) {
+    try {
+      const req = this.rpc.request(ACTIVE_VAULT_FILE_GET)
+
+      this._logger.log('Getting file from active vault:', {
+        key
+      })
+
+      await req.send(JSON.stringify({ key }))
+
+      const res = await req.reply('utf8')
+
+      this._logger.log('File from active vault:', { key, data: res })
+
+      return JSON.parse(res)
+    } catch (error) {
+      this._logger.error('Error getting file from active vault:', error)
+    }
+  }
+
+  async activeVaultRemoveFile(key) {
+    try {
+      const req = this.rpc.request(ACTIVE_VAULT_FILE_REMOVE)
+
+      this._logger.log('Removing file from active vault:', {
+        key
+      })
+
+      await req.send(JSON.stringify({ key }))
+
+      await req.reply('utf8')
+      this._logger.log('File removed from active vault:', { key })
+    } catch (error) {
+      this._logger.error('Error removing file from active vault:', error)
     }
   }
 
