@@ -383,9 +383,9 @@ export class PearpassVaultClient extends EventEmitter {
 
       const res = await req.reply('utf8')
 
-      this._logger.log('Active vault listed:', res)
-
       const parsedRes = JSON.parse(res)
+
+      this._logger.log('Active vault listed:', parsedRes)
 
       return parsedRes.data
     } catch (error) {
