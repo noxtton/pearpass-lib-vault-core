@@ -12,21 +12,21 @@
     "bundle-bare": "npm run bundle:android && npm run bundle:ios"
   },
   "dependencies": {
-    "bare-crypto": "1.4.0",
-    "bare-fs": "4.0.1",
-    "bare-pack": "1.2.4",
-    "bare-path": "3.0.0",
-    "bare-rpc": "0.1.4",
+    "bare-buffer": "3.1.4",
+    "bare-crypto": "^1.4.5",
+    "bare-pack": "1.4.0",
+    "bare-rpc": "0.2.6",
+    "compact-encoding": "^2.16.1",
     "events": "3.3.0",
     "expo-asset": "11.0.4",
     "expo-file-system": "18.0.10",
+    "framed-stream": "^1.0.1",
     "rocksdb-native": "3.5.10",
     "sodium-native": "5.0.1",
     "udx-native": "1.17.5"
   },
   "peerDependencies": {
     "autopass": "^2.2.0",
-    "bare-os": "3.6.0",
     "corestore": "^7.4.3",
     "react-native": "0.77.2",
     "react-native-bare-kit": "0.5.6"

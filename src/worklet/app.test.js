@@ -60,27 +60,27 @@ import { hashPassword } from './hashPassword'
 jest.mock('./decryptVaultKey', () => ({
   decryptVaultKey: jest.fn()
 }))
-
 jest.mock('./getDecryptionKey', () => ({
   getDecryptionKey: jest.fn()
 }))
-
 jest.mock('./encryptVaultKeyWithHashedPassword', () => ({
   encryptVaultKeyWithHashedPassword: jest.fn()
 }))
-
 jest.mock('./encryptVaultWithKey', () => ({
   encryptVaultWithKey: jest.fn()
 }))
-
 jest.mock('./hashPassword', () => ({
   hashPassword: jest.fn()
 }))
-
 jest.mock('bare-rpc', () =>
   jest.fn().mockImplementation((ipc, callback) => ({
     _callback: callback,
     request: jest.fn()
+  }))
+)
+jest.mock('framed-stream', () =>
+  jest.fn().mockImplementation(() => ({
+    create: jest.fn()
   }))
 )
 

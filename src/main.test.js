@@ -40,59 +40,8 @@ import * as FileSystem from 'expo-file-system'
 import { Platform } from 'react-native'
 import { Worklet } from 'react-native-bare-kit'
 
-import {
-  clearDocumentDirectory,
-  createPearpassVaultClient,
-  fileUri
-} from './main'
+import { createPearpassVaultClient, fileUri } from './main'
 import { PearpassVaultClient } from './pearpassVaultClient'
-
-describe('clearDocumentDirectory', () => {
-  beforeEach(() => {
-    jest.clearAllMocks()
-  })
-
-  it('should clear all files in the document directory', async () => {
-    const files = ['file1.txt', 'file2.txt']
-    FileSystem.readDirectoryAsync.mockResolvedValue(files)
-    FileSystem.deleteAsync.mockResolvedValue()
-
-    const consoleLogSpy = jest
-      .spyOn(console, 'log')
-      .mockImplementation(() => {})
-
-    await clearDocumentDirectory()
-
-    expect(FileSystem.readDirectoryAsync).toHaveBeenCalledWith(
-      FileSystem.documentDirectory
-    )
-    expect(FileSystem.deleteAsync).toHaveBeenCalledTimes(files.length)
-    files.forEach((file) => {
-      expect(FileSystem.deleteAsync).toHaveBeenCalledWith(
-        `${FileSystem.documentDirectory}${file}`,
-        { idempotent: true, recursive: true }
-      )
-    })
-    expect(consoleLogSpy).toHaveBeenCalledWith('Document directory cleared!')
-    consoleLogSpy.mockRestore()
-  })
-
-  it('should handle errors when clearing the document directory', async () => {
-    const error = new Error('Test error')
-    FileSystem.readDirectoryAsync.mockRejectedValue(error)
-    const consoleErrorSpy = jest
-      .spyOn(console, 'error')
-      .mockImplementation(() => {})
-
-    await clearDocumentDirectory()
-
-    expect(consoleErrorSpy).toHaveBeenCalledWith(
-      'Error clearing document directory:',
-      error
-    )
-    consoleErrorSpy.mockRestore()
-  })
-})
 
 describe('createPearpassVaultClient', () => {
   let workletInstance

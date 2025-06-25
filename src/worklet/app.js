@@ -1,9 +1,14 @@
 import RPC from 'bare-rpc'
+import FramedStream from 'framed-stream'
 
 import {
   ACTIVE_VAULT_ADD,
   ACTIVE_VAULT_CLOSE,
-  ACTIVE_VAULT_CREATE_INVITE, ACTIVE_VAULT_DELETE_INVITE,
+  ACTIVE_VAULT_CREATE_INVITE,
+  ACTIVE_VAULT_DELETE_INVITE,
+  ACTIVE_VAULT_FILE_ADD,
+  ACTIVE_VAULT_FILE_GET,
+  ACTIVE_VAULT_FILE_REMOVE,
   ACTIVE_VAULT_GET,
   ACTIVE_VAULT_GET_STATUS,
   ACTIVE_VAULT_INIT,
@@ -33,12 +38,16 @@ import {
 } from './api'
 import {
   activeVaultAdd,
+  activeVaultAddFile,
   activeVaultGet,
+  activeVaultGetFile,
   activeVaultList,
+  activeVaultRemoveFile,
   closeActiveVaultInstance,
   closeAllInstances,
   closeVaultsInstance,
-  createInvite, deleteInvite,
+  createInvite,
+  deleteInvite,
   encryptionAdd,
   encryptionClose,
   encryptionGet,
@@ -61,9 +70,13 @@ import { encryptVaultKeyWithHashedPassword } from './encryptVaultKeyWithHashedPa
 import { encryptVaultWithKey } from './encryptVaultWithKey'
 import { getDecryptionKey } from './getDecryptionKey'
 import { hashPassword } from './hashPassword'
+import { receiveFileStream } from '../utils/recieveFileStream'
+import { sendFileStream } from '../utils/sendFileStream'
+import { parseRequestData } from './utils/parseRequestData'
+import { workletLogger } from './utils/workletLogger'
 
 export const handleRpcCommand = async (req) => {
-  const data = req?.data ? JSON.parse(req?.data) : undefined
+  const data = parseRequestData(req.data)
 
   switch (req.command) {
     case STORAGE_PATH_SET:
@@ -136,6 +149,66 @@ export const handleRpcCommand = async (req) => {
         req.reply(
           JSON.stringify({
             error: `Error adding vault: ${error}`
+          })
+        )
+      }
+
+      break
+
+    case ACTIVE_VAULT_FILE_ADD:
+      try {
+        const stream = req.createRequestStream()
+
+        const { buffer, metaData } = await receiveFileStream(stream)
+
+        await activeVaultAddFile(metaData.key, buffer)
+
+        workletLogger({
+          stream: `Received stream data of size: ${buffer.length}`,
+          data: JSON.stringify(metaData)
+        })
+
+        req.reply(JSON.stringify({ success: true, metaData }))
+      } catch (error) {
+        req.reply(
+          JSON.stringify({
+            error: `Error adding file to active vault: ${error}`
+          })
+        )
+      }
+
+      break
+
+    case ACTIVE_VAULT_FILE_GET:
+      try {
+        const file = await activeVaultGetFile(data?.key)
+
+        const stream = req.createResponseStream()
+
+        sendFileStream({
+          stream,
+          buffer: file,
+          metaData: { key: data?.key }
+        })
+      } catch (error) {
+        req.reply(
+          JSON.stringify({
+            error: `Error getting file from active vault: ${error}`
+          })
+        )
+      }
+
+      break
+
+    case ACTIVE_VAULT_FILE_REMOVE:
+      try {
+        await activeVaultRemoveFile(data?.key)
+
+        req.reply(JSON.stringify({ success: true }))
+      } catch (error) {
+        req.reply(
+          JSON.stringify({
+            error: `Error removing file from active vault: ${error}`
           })
         )
       }
@@ -498,4 +571,4 @@ export const handleRpcCommand = async (req) => {
   }
 }
 
-export const rpc = new RPC(BareKit.IPC, handleRpcCommand)
+export const rpc = new RPC(new FramedStream(BareKit.IPC), handleRpcCommand)

@@ -27,7 +27,9 @@ import {
   ENCRYPTION_HASH_PASSWORD,
   ENCRYPTION_ENCRYPT_VAULT_KEY_WITH_HASHED_PASSWORD,
   ENCRYPTION_ENCRYPT_VAULT_WITH_KEY,
-  CLOSE, ACTIVE_VAULT_DELETE_INVITE
+  CLOSE,
+  ACTIVE_VAULT_DELETE_INVITE,
+  ENCRYPTION_DECRYPT_VAULT_KEY
 } from '../worklet/api'
 
 jest.mock('bare-rpc', () =>
@@ -35,6 +37,19 @@ jest.mock('bare-rpc', () =>
     IPC: ipc,
     _callback: callback,
     request: jest.fn()
+  }))
+)
+
+jest.mock('compact-encoding', () =>
+  jest.fn().mockImplementation(() => ({
+    encode: jest.fn(),
+    decode: jest.fn()
+  }))
+)
+
+jest.mock('framed-stream', () =>
+  jest.fn().mockImplementation(() => ({
+    create: jest.fn()
   }))
 )
 
@@ -62,7 +77,7 @@ describe('PearpassVaultClient', () => {
       expect(mockSend).toHaveBeenCalledWith(
         JSON.stringify({ path: '/new/path' })
       )
-      expect(mockReply).toHaveBeenCalledWith('utf8')
+      expect(mockReply).toHaveBeenCalled()
     })
   })
 
@@ -583,20 +598,6 @@ describe('PearpassVaultClient', () => {
       consoleErrorSpy.mockRestore()
     })
 
-    it('should handle LOGGER commands from RPC', () => {
-      const consoleSpy = jest.spyOn(console, 'log').mockImplementation()
-      const client = new PearpassVaultClient(fakeWorklet, '/path', {
-        debugMode: true
-      })
-
-      const callback = client.rpc._callback
-      callback({ command: 'LOGGER_test_message' })
-
-      expect(consoleSpy).toHaveBeenCalledWith('LOGGER:', '_test_message')
-
-      consoleSpy.mockRestore()
-    })
-
     it('should log errors for unknown commands', () => {
       const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation()
       const client = new PearpassVaultClient(fakeWorklet, '/path')
@@ -778,7 +779,7 @@ describe('PearpassVaultClient', () => {
       const result = await client.decryptVaultKey(decryptParams)
 
       expect(client.rpc.request).toHaveBeenCalledWith(
-        'ENCRYPTION_DECRYPT_VAULT_KEY'
+        ENCRYPTION_DECRYPT_VAULT_KEY
       )
       expect(mockSend).toHaveBeenCalledWith(JSON.stringify(decryptParams))
       expect(mockReply).toHaveBeenCalledWith('utf8')

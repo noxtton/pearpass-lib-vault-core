@@ -1,1 +1,1 @@
-export { createPearpassVaultClient, clearDocumentDirectory } from './main'
+export { createPearpassVaultClient } from './main'
