@@ -94,8 +94,6 @@ export class PearpassVaultClient extends EventEmitter {
 
       req.send(JSON.stringify({ path }))
 
-      console.log('Sending request to set storage path:', { path })
-
       this._logger.log('Request sent to set storage path:', req.sent)
 
       await req.reply()
