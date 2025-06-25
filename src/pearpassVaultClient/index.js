@@ -1,8 +1,11 @@
-import { Buffer } from 'buffer'
 import EventEmitter from 'events'
 
 import RPC from 'bare-rpc'
+import cenc from 'compact-encoding'
+import FramedStream from 'framed-stream'
 
+import { receiveFileStream } from '../utils/recieveFileStream'
+import { sendFileStream } from '../utils/sendFileStream'
 import {
   ACTIVE_VAULT_ADD,
   ACTIVE_VAULT_CLOSE,
@@ -36,7 +39,8 @@ import {
   VAULTS_GET,
   VAULTS_GET_STATUS,
   VAULTS_INIT,
-  VAULTS_LIST
+  VAULTS_LIST,
+  WORKLET_LOGGER
 } from '../worklet/api'
 
 export class PearpassVaultClient extends EventEmitter {
@@ -58,20 +62,21 @@ export class PearpassVaultClient extends EventEmitter {
       }
     }
 
-    this.rpc = new RPC(worklet.IPC, (req) => {
+    this.rpc = new RPC(new FramedStream(worklet.IPC), (req) => {
       switch (req.command) {
         case ON_UPDATE:
           this.emit('update')
 
           break
 
+        case WORKLET_LOGGER:
+          const logger = cenc.decode(cenc.json, req.data)
+
+          this._logger.log('WORKLET: ', logger.data)
+
+          break
+
         default:
-          if (req.command.includes('LOGGER')) {
-            this._logger.log('LOGGER:', req.command.replace('LOGGER', ''))
-
-            return
-          }
-
           this._logger.error('Unknown command:', req.command)
       }
     })
@@ -87,9 +92,13 @@ export class PearpassVaultClient extends EventEmitter {
 
       this._logger.log('Setting storage path:', path)
 
-      await req.send(JSON.stringify({ path }))
+      req.send(JSON.stringify({ path }))
 
-      await req.reply('utf8')
+      console.log('Sending request to set storage path:', { path })
+
+      this._logger.log('Request sent to set storage path:', req.sent)
+
+      await req.reply()
 
       this._logger.log('Storage path set:', path)
     } catch (error) {
@@ -201,33 +210,21 @@ export class PearpassVaultClient extends EventEmitter {
 
   async activeVaultAddFile(key, buffer) {
     try {
+      this._logger.log('Adding file to active vault:', { key })
+
       const req = this.rpc.request(ACTIVE_VAULT_FILE_ADD)
 
-      this._logger.log('Adding file to active vault:', {
-        key
+      const stream = req.createRequestStream()
+
+      await sendFileStream({
+        stream,
+        buffer,
+        metaData: { key }
       })
 
-      console.log('current key is:', key)
+      const res = await req.reply('utf8')
 
-      const keyBuffer = Buffer.from(key, 'utf8')
-      const keyLengthBuffer = Buffer.alloc(4)
-      keyLengthBuffer.writeUInt32BE(keyBuffer.length, 0)
-
-      const combinedBuffer = Buffer.concat([keyLengthBuffer, keyBuffer, buffer])
-
-      // const keyLength = combinedBuffer?.readUInt32BE(0)
-
-      // const keyBufferExtracted = combinedBuffer?.subarray(4, 4 + keyLength)
-      // const extractedKey = Buffer.from(keyBufferExtracted).toString('utf8')
-
-      // console.log('Key extracted:', extractedKey)
-
-      await req.send(combinedBuffer)
-
-      this._logger.log(' 5', { key })
-
-      await req.reply('utf8')
-      this._logger.log(' 6', { key })
+      this._logger.log('File added', res)
     } catch (error) {
       this._logger.error('Error adding file to active vault:', error)
     }
@@ -241,13 +238,15 @@ export class PearpassVaultClient extends EventEmitter {
         key
       })
 
-      await req.send(JSON.stringify({ key }))
+      req.send(JSON.stringify({ key }))
 
-      const res = await req.reply('utf8')
+      const stream = req.createResponseStream()
 
-      this._logger.log('File from active vault:', { key, data: res })
+      const { buffer } = await receiveFileStream(stream)
 
-      return JSON.parse(res)
+      this._logger.log('File from active vault:', { key })
+
+      return buffer
     } catch (error) {
       this._logger.error('Error getting file from active vault:', error)
     }

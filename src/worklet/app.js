@@ -1,4 +1,5 @@
 import RPC from 'bare-rpc'
+import FramedStream from 'framed-stream'
 
 import {
   ACTIVE_VAULT_ADD,
@@ -69,10 +70,13 @@ import { encryptVaultKeyWithHashedPassword } from './encryptVaultKeyWithHashedPa
 import { encryptVaultWithKey } from './encryptVaultWithKey'
 import { getDecryptionKey } from './getDecryptionKey'
 import { hashPassword } from './hashPassword'
+import { receiveFileStream } from '../utils/recieveFileStream'
+import { sendFileStream } from '../utils/sendFileStream'
+import { parseRequestData } from './utils/parseRequestData'
+import { workletLogger } from './utils/workletLogger'
 
 export const handleRpcCommand = async (req) => {
-  const data =
-    typeof req?.data.type !== 'buffer' ? JSON.parse(req?.data) : req?.data
+  const data = parseRequestData(req.data)
 
   switch (req.command) {
     case STORAGE_PATH_SET:
@@ -153,16 +157,18 @@ export const handleRpcCommand = async (req) => {
 
     case ACTIVE_VAULT_FILE_ADD:
       try {
-        const keyLength = data?.data.readUInt32BE(0)
+        const stream = req.createRequestStream()
 
-        const keyBuffer = data?.data.subarray(4, 4 + keyLength)
-        const key = Buffer.from(keyBuffer).toString('utf8')
+        const { buffer, metaData } = await receiveFileStream(stream)
 
-        const fileBuffer = data?.data.subarray(4 + keyLength)
+        await activeVaultAddFile(metaData.key, buffer)
 
-        await activeVaultAddFile(key, fileBuffer)
+        workletLogger({
+          stream: `Received stream data of size: ${buffer.length}`,
+          data: JSON.stringify(metaData)
+        })
 
-        req.reply(JSON.stringify({ success: true }))
+        req.reply(JSON.stringify({ success: true, metaData }))
       } catch (error) {
         req.reply(
           JSON.stringify({
@@ -177,7 +183,13 @@ export const handleRpcCommand = async (req) => {
       try {
         const file = await activeVaultGetFile(data?.key)
 
-        req.reply(JSON.stringify({ data: file }))
+        const stream = req.createResponseStream()
+
+        sendFileStream({
+          stream,
+          buffer: file,
+          metaData: { key: data?.key }
+        })
       } catch (error) {
         req.reply(
           JSON.stringify({
@@ -559,4 +571,4 @@ export const handleRpcCommand = async (req) => {
   }
 }
 
-export const rpc = new RPC(BareKit.IPC, handleRpcCommand)
+export const rpc = new RPC(new FramedStream(BareKit.IPC), handleRpcCommand)

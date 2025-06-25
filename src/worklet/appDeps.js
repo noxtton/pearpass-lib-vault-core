@@ -115,7 +115,15 @@ export const collectValuesByFilter = async (instance, filterFn) => {
 
   return new Promise((resolve, reject) => {
     stream.on('data', ({ key, value }) => {
+      if (!value) {
+        return
+      }
+
       const parsedValue = JSON.parse(value)
+
+      if (!parsedValue) {
+        return
+      }
 
       if (!filterFn) {
         results.push(parsedValue)
@@ -325,11 +333,7 @@ export const activeVaultGetFile = async (key) => {
     throw new Error('Vault not initialised')
   }
 
-  const res = await activeVaultInstance.getFile(key)
-
-  const parsedRes = JSON.parse(res)
-
-  return parsedRes
+  return activeVaultInstance.getFile(key)
 }
 
 /**
