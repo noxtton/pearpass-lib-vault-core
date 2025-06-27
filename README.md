@@ -118,3 +118,7 @@ await client.close();
 - [pearpass-lib-vault](https://github.com/tetherto/pearpass-lib-desktop) - Library for managing encrypted vaults in applications
 - [pearpass-lib-vault-desktop](https://github.com/tetherto/pearpass-lib-desktop) - Client implementation for desktop applications
 - [tether-dev-docs](https://github.com/tetherto/tether-dev-docs) - Documentations and guides for developers
+
+## License
+
+This project is licensed under the Apache License, Version 2.0. See the [LICENSE](./LICENSE) file for details.
