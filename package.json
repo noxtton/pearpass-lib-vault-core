@@ -26,7 +26,7 @@
     "expo-file-system": "18.0.10",
     "framed-stream": "1.0.1",
     "rocksdb-native": "3.5.10",
-    "sodium-native": "5.0.1",
+    "sodium-native": "5.0.6",
     "udx-native": "1.17.5"
   },
   "peerDependencies": {
