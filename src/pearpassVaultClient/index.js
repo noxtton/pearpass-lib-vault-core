@@ -44,7 +44,7 @@ import {
 } from '../worklet/api'
 
 export class PearpassVaultClient extends EventEmitter {
-  constructor(worklet, storagePath, { debugMode = false } = {}) {
+  constructor(ipc, storagePath, { debugMode = false } = {}) {
     super()
 
     this.debugMode = debugMode
@@ -62,7 +62,7 @@ export class PearpassVaultClient extends EventEmitter {
       }
     }
 
-    this.rpc = new RPC(new FramedStream(worklet.IPC), (req) => {
+    this.rpc = new RPC(new FramedStream(ipc), (req) => {
       switch (req.command) {
         case ON_UPDATE:
           this.emit('update')
