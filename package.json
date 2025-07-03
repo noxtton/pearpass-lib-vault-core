@@ -7,33 +7,23 @@
   "license": "Apache-2.0",
   "scripts": {
     "lint": "eslint --fix .",
-    "test": "jest",
-    "bundle:android": "bare-pack -p android --linked --out bundles/autopass-android.bundle src/worklet/app.js",
-    "bundle:ios": "bare-pack -p ios --linked --out bundles/autopass-ios.bundle src/worklet/app.js",
-    "bundle-bare": "npm run bundle:android && npm run bundle:ios"
+    "test": "jest"
   },
   "dependencies": {
+    "autopass": "2.2.0",
     "bare-buffer": "3.1.4",
     "bare-crypto": "1.4.5",
     "bare-fs": "4.1.5",
     "bare-os": "3.6.1",
-    "bare-pack": "1.4.0",
     "bare-path": "3.0.0",
     "bare-rpc": "0.2.6",
     "compact-encoding": "2.16.1",
+    "corestore": "7.4.3",
     "events": "3.3.0",
-    "expo-asset": "11.0.4",
-    "expo-file-system": "18.0.10",
     "framed-stream": "1.0.1",
     "rocksdb-native": "3.5.10",
     "sodium-native": "5.0.6",
     "udx-native": "1.17.5"
-  },
-  "peerDependencies": {
-    "autopass": "2.2.0",
-    "corestore": "7.4.3",
-    "react-native": "0.77.2",
-    "react-native-bare-kit": "0.7.0"
   },
   "devDependencies": {
     "@babel/core": "^7.26.10",

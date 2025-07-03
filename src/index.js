@@ -1,1 +1,1 @@
-export { createPearpassVaultClient } from './main'
+export { PearpassVaultClient } from './pearpassVaultClient'
