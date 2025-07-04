@@ -1,5 +1,8 @@
 import Autopass from 'autopass'
+import barePath from 'bare-path'
 import Corestore from 'corestore'
+
+import { isPearWorker } from './utils/isPearWorker'
 
 let STORAGE_PATH = null
 
@@ -150,9 +153,11 @@ export const buildPath = (path) => {
     throw new Error('Storage path not set')
   }
 
-  const fullPath = STORAGE_PATH + '/' + path
+  const fullPath = barePath.join(STORAGE_PATH, path)
 
-  return fullPath.substring('file://'.length, fullPath.length)
+  return isPearWorker()
+    ? fullPath
+    : fullPath.substring('file://'.length, fullPath.length)
 }
 
 /**

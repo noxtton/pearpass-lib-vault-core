@@ -72,6 +72,7 @@ import { getDecryptionKey } from './getDecryptionKey'
 import { hashPassword } from './hashPassword'
 import { receiveFileStream } from '../utils/recieveFileStream'
 import { sendFileStream } from '../utils/sendFileStream'
+import { isPearWorker } from './utils/isPearWorker'
 import { parseRequestData } from './utils/parseRequestData'
 import { workletLogger } from './utils/workletLogger'
 
@@ -571,4 +572,6 @@ export const handleRpcCommand = async (req) => {
   }
 }
 
-export const rpc = new RPC(new FramedStream(BareKit.IPC), handleRpcCommand)
+const ipc = isPearWorker() ? Pear.worker.pipe() : BareKit.IPC
+
+export const rpc = new RPC(new FramedStream(ipc), handleRpcCommand)
