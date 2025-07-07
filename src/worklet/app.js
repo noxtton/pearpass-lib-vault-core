@@ -574,4 +574,10 @@ export const handleRpcCommand = async (req) => {
 
 const ipc = isPearWorker() ? Pear.worker.pipe() : BareKit.IPC
 
+// eslint-disable-next-line no-undef
+ipc.on('close', () => Bare.exit(0))
+
+// eslint-disable-next-line no-undef
+ipc.on('end', () => Bare.exit(0))
+
 export const rpc = new RPC(new FramedStream(ipc), handleRpcCommand)
