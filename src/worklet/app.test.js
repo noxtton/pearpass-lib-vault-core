@@ -83,6 +83,9 @@ jest.mock('framed-stream', () =>
     create: jest.fn()
   }))
 )
+jest.mock('./utils/isPearWorker', () => ({
+  isPearWorker: jest.fn().mockReturnValue(false)
+}))
 
 jest.mock('./appDeps', () => ({
   vaultsInit: jest.fn().mockResolvedValue(true),
@@ -119,12 +122,17 @@ describe('RPC handler', () => {
 
   beforeAll(() => {
     global.BareKit = {
-      IPC: {}
+      IPC: {
+        on: jest.fn(),
+        off: jest.fn(),
+        emit: jest.fn()
+      }
     }
   })
 
   beforeEach(() => {
     jest.clearAllMocks()
+    jest.resetModules()
 
     mockRequest = {
       command: '',

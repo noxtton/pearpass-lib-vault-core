@@ -106,6 +106,14 @@ jest.mock('bare-rpc', () =>
   }))
 )
 
+jest.mock('bare-path', () => ({
+  join: (...args) => args.join('/')
+}))
+
+jest.mock('./utils/isPearWorker', () => ({
+  isPearWorker: jest.fn().mockReturnValue(false)
+}))
+
 import * as appDeps from './appDeps'
 
 describe('appDeps module functions (excluding encryption)', () => {
