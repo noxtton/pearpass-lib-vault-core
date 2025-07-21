@@ -119,11 +119,10 @@ import * as appDeps from './appDeps'
 describe('appDeps module functions (excluding encryption)', () => {
   beforeEach(async () => {
     jest.resetModules()
-    await appDeps.setStoragePath(null)
   })
 
   describe('setStoragePath and buildPath', () => {
-    test('buildPath should throw if STORAGE_PATH is not set', () => {
+    test('buildPath should throw if STORAGE_PATH is not set', async () => {
       expect(() => appDeps.buildPath('vault/test')).toThrow(
         'Storage path not set'
       )
