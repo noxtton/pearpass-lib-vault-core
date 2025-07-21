@@ -11,19 +11,19 @@
   },
   "dependencies": {
     "autopass": "2.2.0",
-    "bare-buffer": "3.1.4",
-    "bare-crypto": "1.4.5",
-    "bare-fs": "4.1.5",
+    "bare-buffer": "3.2.0",
+    "bare-crypto": "1.7.0",
+    "bare-fs": "4.1.6",
     "bare-os": "3.6.1",
     "bare-path": "3.0.0",
     "bare-rpc": "0.2.6",
     "compact-encoding": "2.16.1",
-    "corestore": "7.4.3",
+    "corestore": "7.4.5",
     "events": "3.3.0",
     "framed-stream": "1.0.1",
-    "rocksdb-native": "3.5.10",
+    "rocksdb-native": "3.6.4",
     "sodium-native": "5.0.6",
-    "udx-native": "1.17.5"
+    "udx-native": "1.18.2"
   },
   "devDependencies": {
     "@babel/core": "^7.26.10",
