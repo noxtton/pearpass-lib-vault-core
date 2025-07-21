@@ -22,7 +22,9 @@ let listeningVaultId = null
  * @returns {Promise<void>}
  * */
 export const setStoragePath = async (path) => {
-  STORAGE_PATH = path
+  STORAGE_PATH = isPearWorker()
+    ? path
+    : path.substring('file://'.length, path.length)
 }
 
 /**
@@ -153,11 +155,7 @@ export const buildPath = (path) => {
     throw new Error('Storage path not set')
   }
 
-  const fullPath = barePath.join(STORAGE_PATH, path)
-
-  return isPearWorker()
-    ? fullPath
-    : fullPath.substring('file://'.length, fullPath.length)
+  return barePath.join(STORAGE_PATH, path)
 }
 
 /**
