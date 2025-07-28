@@ -81,13 +81,13 @@ export const handleRpcCommand = async (req) => {
 
   switch (req.command) {
     case STORAGE_PATH_SET:
-      workletLogger('Setting storage path:', data?.path)
+      workletLogger.log('Setting storage path:', data?.path)
 
       setStoragePath(data?.path)
 
       req.reply(JSON.stringify({ success: true }))
 
-      workletLogger('Storage path set successfully:', data?.path)
+      workletLogger.log('Storage path set successfully:', data?.path)
 
       break
 
@@ -168,7 +168,7 @@ export const handleRpcCommand = async (req) => {
 
         await activeVaultAddFile(metaData.key, buffer)
 
-        workletLogger({
+        workletLogger.log({
           stream: `Received stream data of size: ${buffer.length}`,
           data: JSON.stringify(metaData)
         })
