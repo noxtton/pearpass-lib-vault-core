@@ -81,9 +81,13 @@ export const handleRpcCommand = async (req) => {
 
   switch (req.command) {
     case STORAGE_PATH_SET:
+      workletLogger('Setting storage path:', data?.path)
+
       setStoragePath(data?.path)
 
       req.reply(JSON.stringify({ success: true }))
+
+      workletLogger('Storage path set successfully:', data?.path)
 
       break
 

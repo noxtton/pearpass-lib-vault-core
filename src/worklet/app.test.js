@@ -86,6 +86,9 @@ jest.mock('framed-stream', () =>
 jest.mock('./utils/isPearWorker', () => ({
   isPearWorker: jest.fn().mockReturnValue(false)
 }))
+jest.mock('./utils/workletLogger', () => ({
+  workletLogger: jest.fn()
+}))
 
 jest.mock('./appDeps', () => ({
   vaultsInit: jest.fn().mockResolvedValue(true),
