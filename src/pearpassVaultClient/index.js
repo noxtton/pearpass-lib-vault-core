@@ -1,7 +1,6 @@
 import EventEmitter from 'events'
 
 import RPC from 'bare-rpc'
-import cenc from 'compact-encoding'
 import FramedStream from 'framed-stream'
 
 import { receiveFileStream } from '../utils/recieveFileStream'
@@ -39,8 +38,7 @@ import {
   VAULTS_GET,
   VAULTS_GET_STATUS,
   VAULTS_INIT,
-  VAULTS_LIST,
-  WORKLET_LOGGER
+  VAULTS_LIST
 } from '../worklet/api'
 
 export class PearpassVaultClient extends EventEmitter {
@@ -66,13 +64,6 @@ export class PearpassVaultClient extends EventEmitter {
       switch (req.command) {
         case ON_UPDATE:
           this.emit('update')
-
-          break
-
-        case WORKLET_LOGGER:
-          const logger = cenc.decode(cenc.json, req.data)
-
-          this._logger.log('WORKLET: ', logger.data)
 
           break
 
