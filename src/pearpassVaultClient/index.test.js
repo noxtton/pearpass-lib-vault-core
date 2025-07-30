@@ -14,7 +14,7 @@ import {
   ACTIVE_VAULT_LIST,
   ACTIVE_VAULT_GET,
   ACTIVE_VAULT_CREATE_INVITE,
-  PAIR,
+  PAIR_ACTIVE_VAULT,
   INIT_LISTENER,
   ENCRYPTION_INIT,
   ENCRYPTION_GET_STATUS,
@@ -412,7 +412,7 @@ describe('PearpassVaultClient', () => {
       })
 
       const result = await client.pair(inviteCode)
-      expect(client.rpc.request).toHaveBeenCalledWith(PAIR)
+      expect(client.rpc.request).toHaveBeenCalledWith(PAIR_ACTIVE_VAULT)
       expect(mockSend).toHaveBeenCalledWith(JSON.stringify({ inviteCode }))
       expect(mockReply).toHaveBeenCalledWith('utf8')
       expect(result).toEqual(responseObj.data)

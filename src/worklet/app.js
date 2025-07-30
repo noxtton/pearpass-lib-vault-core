@@ -14,6 +14,7 @@ import {
   ACTIVE_VAULT_INIT,
   ACTIVE_VAULT_LIST,
   ACTIVE_VAULT_REMOVE,
+  CANCEL_PAIR_ACTIVE_VAULT,
   CLOSE,
   ENCRYPTION_ADD,
   ENCRYPTION_CLOSE,
@@ -27,7 +28,7 @@ import {
   ENCRYPTION_INIT,
   INIT_LISTENER,
   ON_UPDATE,
-  PAIR,
+  PAIR_ACTIVE_VAULT,
   STORAGE_PATH_SET,
   VAULTS_ADD,
   VAULTS_CLOSE,
@@ -57,7 +58,8 @@ import {
   getIsVaultsInitialized,
   initActiveVaultInstance,
   initListener,
-  pair,
+  pairActiveVault,
+  cancelPairActiveVault,
   setStoragePath,
   vaultRemove,
   vaultsAdd,
@@ -360,17 +362,51 @@ export const handleRpcCommand = async (req) => {
 
       break
 
-    case PAIR:
+    case PAIR_ACTIVE_VAULT:
       try {
-        const inviteCode = data.inviteCode
+        workletLogger.log('Pairing with invite code:', data.inviteCode)
 
-        const { vaultId, encryptionKey } = await pair(inviteCode)
+        const { vaultId, encryptionKey } = await pairActiveVault(
+          data.inviteCode
+        )
 
         req.reply(JSON.stringify({ data: { vaultId, encryptionKey } }))
+
+        workletLogger.log(
+          'Pairing successful with invite code:',
+          data.inviteCode,
+          'Vault ID:',
+          vaultId,
+          'Encryption Key:',
+          encryptionKey
+        )
       } catch (error) {
+        workletLogger.error('Error pairing with invite code:', error)
+
         req.reply(
           JSON.stringify({
             error: `Error pairing with invite code: ${error}`
+          })
+        )
+      }
+
+      break
+
+    case CANCEL_PAIR_ACTIVE_VAULT:
+      try {
+        workletLogger.log('Canceling pairing with active vault')
+
+        await cancelPairActiveVault()
+
+        req.reply(JSON.stringify({ success: true }))
+
+        workletLogger.log('Pairing with active vault canceled successfully')
+      } catch (error) {
+        workletLogger.error('Error canceling pairing with active vault:', error)
+
+        req.reply(
+          JSON.stringify({
+            error: `Error canceling pairing with active vault: ${error}`
           })
         )
       }

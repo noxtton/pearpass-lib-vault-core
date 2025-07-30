@@ -18,6 +18,7 @@ import {
   ACTIVE_VAULT_INIT,
   ACTIVE_VAULT_LIST,
   ACTIVE_VAULT_REMOVE,
+  CANCEL_PAIR_ACTIVE_VAULT,
   CLOSE,
   ENCRYPTION_ADD,
   ENCRYPTION_CLOSE,
@@ -31,7 +32,7 @@ import {
   ENCRYPTION_INIT,
   INIT_LISTENER,
   ON_UPDATE,
-  PAIR,
+  PAIR_ACTIVE_VAULT,
   STORAGE_PATH_SET,
   VAULTS_ADD,
   VAULTS_CLOSE,
@@ -101,7 +102,7 @@ export class PearpassVaultClient extends EventEmitter {
 
       this._logger.log('Initializing vaults...', encryptionKey)
 
-      await req.send(
+      req.send(
         JSON.stringify({
           encryptionKey: encryptionKey
         })
@@ -131,7 +132,7 @@ export class PearpassVaultClient extends EventEmitter {
 
       this._logger.log('Getting vaults status...')
 
-      await req.send()
+      req.send()
 
       const res = await req.reply('utf8')
 
@@ -149,7 +150,7 @@ export class PearpassVaultClient extends EventEmitter {
 
       this._logger.log('Getting from vaults:', key)
 
-      await req.send(JSON.stringify({ key }))
+      req.send(JSON.stringify({ key }))
 
       const res = await req.reply('utf8')
 
@@ -169,7 +170,7 @@ export class PearpassVaultClient extends EventEmitter {
 
       this._logger.log('Closing vaults...')
 
-      await req.send()
+      req.send()
 
       const res = await req.reply('utf8')
 
@@ -188,7 +189,7 @@ export class PearpassVaultClient extends EventEmitter {
         data: vault
       })
 
-      await req.send(JSON.stringify({ key, data: vault }))
+      req.send(JSON.stringify({ key, data: vault }))
 
       await req.reply('utf8')
       this._logger.log('Vault added:', { key, data: vault })
@@ -249,7 +250,7 @@ export class PearpassVaultClient extends EventEmitter {
         key
       })
 
-      await req.send(JSON.stringify({ key }))
+      req.send(JSON.stringify({ key }))
 
       await req.reply('utf8')
       this._logger.log('File removed from active vault:', { key })
@@ -264,7 +265,7 @@ export class PearpassVaultClient extends EventEmitter {
 
       this._logger.log('Listing vaults:', filterKey)
 
-      await req.send(JSON.stringify({ filterKey }))
+      req.send(JSON.stringify({ filterKey }))
 
       const res = await req.reply('utf8')
 
@@ -284,7 +285,7 @@ export class PearpassVaultClient extends EventEmitter {
 
       this._logger.log('Initializing active vault:', id)
 
-      await req.send(JSON.stringify({ id, encryptionKey }))
+      req.send(JSON.stringify({ id, encryptionKey }))
 
       const res = await req.reply('utf8')
 
@@ -302,7 +303,7 @@ export class PearpassVaultClient extends EventEmitter {
 
       this._logger.log('Getting active vault status...')
 
-      await req.send()
+      req.send()
 
       const res = await req.reply('utf8')
 
@@ -320,7 +321,7 @@ export class PearpassVaultClient extends EventEmitter {
 
       this._logger.log('Closing active vault...')
 
-      await req.send()
+      req.send()
 
       await req.reply('utf8')
 
@@ -336,7 +337,7 @@ export class PearpassVaultClient extends EventEmitter {
 
       this._logger.log('Adding active vault:', key, data)
 
-      await req.send(JSON.stringify({ key, data }))
+      req.send(JSON.stringify({ key, data }))
 
       await req.reply('utf8')
 
@@ -352,7 +353,7 @@ export class PearpassVaultClient extends EventEmitter {
 
       this._logger.log('Removing active vault:', key)
 
-      await req.send(JSON.stringify({ key }))
+      req.send(JSON.stringify({ key }))
 
       await req.reply('utf8')
 
@@ -368,7 +369,7 @@ export class PearpassVaultClient extends EventEmitter {
 
       this._logger.log('Listing active vault...')
 
-      await req.send(JSON.stringify({ filterKey }))
+      req.send(JSON.stringify({ filterKey }))
 
       const res = await req.reply('utf8')
 
@@ -388,7 +389,7 @@ export class PearpassVaultClient extends EventEmitter {
 
       this._logger.log('Getting active vault:', key)
 
-      await req.send(JSON.stringify({ key }))
+      req.send(JSON.stringify({ key }))
 
       const res = await req.reply('utf8')
 
@@ -408,7 +409,7 @@ export class PearpassVaultClient extends EventEmitter {
 
       this._logger.log('Creating invite...')
 
-      await req.send()
+      req.send()
 
       const res = await req.reply('utf8')
 
@@ -428,7 +429,7 @@ export class PearpassVaultClient extends EventEmitter {
 
       this._logger.log('Deleting invite...')
 
-      await req.send()
+      req.send()
 
       const res = await req.reply('utf8')
 
@@ -442,13 +443,13 @@ export class PearpassVaultClient extends EventEmitter {
     }
   }
 
-  async pair(inviteCode) {
+  async pairActiveVault(inviteCode) {
     try {
-      const req = this.rpc.request(PAIR)
+      const req = this.rpc.request(PAIR_ACTIVE_VAULT)
 
       this._logger.log('Pairing with invite code:', inviteCode)
 
-      await req.send(JSON.stringify({ inviteCode }))
+      req.send(JSON.stringify({ inviteCode }))
 
       const res = await req.reply('utf8')
 
@@ -462,13 +463,33 @@ export class PearpassVaultClient extends EventEmitter {
     }
   }
 
+  async cancelPairActiveVault() {
+    try {
+      const req = this.rpc.request(CANCEL_PAIR_ACTIVE_VAULT)
+
+      this._logger.log('Canceling pairing with active vault...')
+
+      req.send()
+
+      const res = await req.reply('utf8')
+
+      this._logger.log('Pairing with active vault canceled successfully:', res)
+
+      const parsedRes = JSON.parse(res)
+
+      return parsedRes.success
+    } catch (error) {
+      this._logger.error('Error canceling pairing with active vault:', error)
+    }
+  }
+
   async initListener({ vaultId }) {
     try {
       const req = this.rpc.request(INIT_LISTENER)
 
       this._logger.log('Initializing listener:', vaultId)
 
-      await req.send(JSON.stringify({ vaultId }))
+      req.send(JSON.stringify({ vaultId }))
 
       const res = await req.reply('utf8')
 
@@ -488,7 +509,7 @@ export class PearpassVaultClient extends EventEmitter {
 
       this._logger.log('Initializing encryption...')
 
-      await req.send()
+      req.send()
 
       const res = await req.reply('utf8')
 
@@ -508,7 +529,7 @@ export class PearpassVaultClient extends EventEmitter {
 
       this._logger.log('Getting encryption status...')
 
-      await req.send()
+      req.send()
 
       const res = await req.reply('utf8')
 
@@ -526,7 +547,7 @@ export class PearpassVaultClient extends EventEmitter {
 
       this._logger.log('Getting encryption:', key)
 
-      await req.send(JSON.stringify({ key }))
+      req.send(JSON.stringify({ key }))
 
       const res = await req.reply('utf8')
 
@@ -546,7 +567,7 @@ export class PearpassVaultClient extends EventEmitter {
 
       this._logger.log('Adding encryption:', key, data)
 
-      await req.send(JSON.stringify({ key, data }))
+      req.send(JSON.stringify({ key, data }))
 
       await req.reply('utf8')
 
@@ -562,7 +583,7 @@ export class PearpassVaultClient extends EventEmitter {
 
       this._logger.log(ENCRYPTION_HASH_PASSWORD, password)
 
-      await req.send(JSON.stringify({ password }))
+      req.send(JSON.stringify({ password }))
 
       const res = await req.reply('utf8')
 
@@ -587,7 +608,7 @@ export class PearpassVaultClient extends EventEmitter {
         hashedPassword
       )
 
-      await req.send(JSON.stringify({ hashedPassword }))
+      req.send(JSON.stringify({ hashedPassword }))
 
       const res = await req.reply('utf8')
 
@@ -618,7 +639,7 @@ export class PearpassVaultClient extends EventEmitter {
         key
       })
 
-      await req.send(JSON.stringify({ hashedPassword, key }))
+      req.send(JSON.stringify({ hashedPassword, key }))
 
       const res = await req.reply('utf8')
 
@@ -641,7 +662,7 @@ export class PearpassVaultClient extends EventEmitter {
         password
       })
 
-      await req.send(
+      req.send(
         JSON.stringify({
           salt,
           password
@@ -670,7 +691,7 @@ export class PearpassVaultClient extends EventEmitter {
         hashedPassword
       })
 
-      await req.send(
+      req.send(
         JSON.stringify({
           ciphertext,
           nonce,
@@ -696,7 +717,7 @@ export class PearpassVaultClient extends EventEmitter {
 
       this._logger.log('Closing encryption...')
 
-      await req.send()
+      req.send()
 
       await req.reply('utf8')
 
@@ -712,7 +733,7 @@ export class PearpassVaultClient extends EventEmitter {
 
       this._logger.log('Closing instances...')
 
-      await req.send()
+      req.send()
 
       await req.reply('utf8')
 

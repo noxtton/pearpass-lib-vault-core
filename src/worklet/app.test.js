@@ -13,7 +13,7 @@ import {
   ACTIVE_VAULT_LIST,
   ACTIVE_VAULT_GET,
   ACTIVE_VAULT_CREATE_INVITE,
-  PAIR,
+  PAIR_ACTIVE_VAULT,
   INIT_LISTENER,
   ENCRYPTION_INIT,
   ENCRYPTION_GET_STATUS,
@@ -358,8 +358,8 @@ describe('RPC handler', () => {
     )
   })
 
-  test('should handle PAIR command', async () => {
-    mockRequest.command = PAIR
+  test('should handle PAIR_ACTIVE_VAULT command', async () => {
+    mockRequest.command = PAIR_ACTIVE_VAULT
     mockRequest.data = JSON.stringify({ inviteCode: 'vault-id/invite-code' })
     pair.mockResolvedValueOnce({ vaultId: 'vault-id', encryptionKey: 'key' })
 

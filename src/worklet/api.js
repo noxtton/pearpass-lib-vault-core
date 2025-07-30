@@ -20,11 +20,9 @@ export const ACTIVE_VAULT_LIST = 16
 export const ACTIVE_VAULT_GET = 17
 export const ACTIVE_VAULT_CREATE_INVITE = 18
 export const ACTIVE_VAULT_DELETE_INVITE = 19
-
-export const PAIR = 20
+export const PAIR_ACTIVE_VAULT = 20
 export const INIT_LISTENER = 21
 export const ON_UPDATE = 22
-
 export const ENCRYPTION_INIT = 23
 export const ENCRYPTION_GET_STATUS = 24
 export const ENCRYPTION_GET = 25
@@ -35,7 +33,5 @@ export const ENCRYPTION_ENCRYPT_VAULT_KEY_WITH_HASHED_PASSWORD = 29
 export const ENCRYPTION_ENCRYPT_VAULT_WITH_KEY = 30
 export const ENCRYPTION_DECRYPT_VAULT_KEY = 31
 export const ENCRYPTION_GET_DECRYPTION_KEY = 32
-
 export const CLOSE = 33
-
-export const WORKLET_LOGGER = 34
+export const CANCEL_PAIR_ACTIVE_VAULT = 34
