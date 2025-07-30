@@ -415,7 +415,7 @@ export const pairActiveVault = async (inviteCode) => {
     await closeActiveVaultInstance()
   }
 
-  const encryptionKey = pearpassPairer.pairInstance(
+  const encryptionKey = await pearpassPairer.pairInstance(
     buildPath(`vault/${vaultId}`),
     inviteKey
   )
