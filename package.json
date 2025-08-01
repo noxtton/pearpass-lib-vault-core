@@ -10,7 +10,7 @@
     "test": "jest"
   },
   "dependencies": {
-    "autopass": "2.2.0",
+    "autopass": "2.2.1",
     "bare-buffer": "3.2.0",
     "bare-crypto": "1.7.0",
     "bare-fs": "4.1.6",
@@ -26,10 +26,10 @@
     "udx-native": "1.18.2"
   },
   "devDependencies": {
-    "@babel/core": "^7.26.10",
-    "@babel/preset-env": "^7.26.9",
-    "babel-jest": "^29.7.0",
-    "jest": "^29.7.0",
-    "tether-dev-docs": "github:noxtton/tether-dev-docs#v0.0.4"
+    "@babel/core": "7.26.10",
+    "@babel/preset-env": "7.26.9",
+    "babel-jest": "29.7.0",
+    "jest": "29.7.0",
+    "tether-dev-docs": "github:noxtton/tether-dev-docs#v0.0.6"
   }
 }

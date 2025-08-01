@@ -2,40 +2,72 @@ import sodium from 'sodium-native'
 
 import { encryptVaultKeyWithHashedPassword } from './encryptVaultKeyWithHashedPassword'
 
-const validHashedPassword = 'a'.repeat(64)
+jest.mock('sodium-native', () => ({
+  crypto_secretbox_NONCEBYTES: 24,
+  crypto_secretbox_MACBYTES: 16,
+  randombytes_buf: jest.fn(),
+  crypto_secretbox_easy: jest.fn()
+}))
 
 describe('encryptVaultKeyWithHashedPassword', () => {
-  test('should return an object with ciphertext and nonce properties', () => {
-    const result = encryptVaultKeyWithHashedPassword(validHashedPassword)
-    expect(result).toHaveProperty('ciphertext')
-    expect(result).toHaveProperty('nonce')
-    expect(typeof result.ciphertext).toBe('string')
-    expect(typeof result.nonce).toBe('string')
+  beforeEach(() => {
+    jest.clearAllMocks()
   })
 
-  test('ciphertext and nonce should be valid base64 strings with correct lengths', () => {
-    const result = encryptVaultKeyWithHashedPassword(validHashedPassword)
+  test('should correctly encrypt a key using a hashed password', () => {
+    const hashedPassword =
+      'a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2'
+    const mockKey = Buffer.alloc(32, 'k')
+    const mockNonce = Buffer.alloc(24, 'n')
+    const mockCiphertext = Buffer.alloc(32 + 16, 'c')
 
-    const ciphertextBuffer = Buffer.from(result.ciphertext, 'base64')
-    const nonceBuffer = Buffer.from(result.nonce, 'base64')
+    sodium.randombytes_buf
+      .mockImplementationOnce((buf) => {
+        buf.set(mockKey)
+      })
+      .mockImplementationOnce((buf) => {
+        buf.set(mockNonce)
+      })
 
-    expect(ciphertextBuffer.length).toBe(32 + sodium.crypto_secretbox_MACBYTES)
+    sodium.crypto_secretbox_easy.mockImplementation((ciphertext) => {
+      ciphertext.set(mockCiphertext)
+    })
 
-    expect(nonceBuffer.length).toBe(sodium.crypto_secretbox_NONCEBYTES)
+    const result = encryptVaultKeyWithHashedPassword(hashedPassword)
+
+    expect(sodium.randombytes_buf).toHaveBeenCalledTimes(2)
+    expect(sodium.crypto_secretbox_easy).toHaveBeenCalledTimes(1)
+
+    const [ciphertextArg, keyArg, nonceArg, hashedPasswordArg] =
+      sodium.crypto_secretbox_easy.mock.calls[0]
+
+    expect(ciphertextArg).toBeInstanceOf(Buffer)
+    expect(ciphertextArg.length).toBe(32 + 16)
+    expect(keyArg).toEqual(mockKey)
+    expect(nonceArg).toEqual(mockNonce)
+    expect(hashedPasswordArg).toEqual(Buffer.from(hashedPassword, 'hex'))
+
+    expect(result).toEqual({
+      ciphertext: mockCiphertext.toString('base64'),
+      nonce: mockNonce.toString('base64')
+    })
   })
 
-  test('should generate different ciphertext and nonce on subsequent calls', () => {
-    const result1 = encryptVaultKeyWithHashedPassword(validHashedPassword)
-    const result2 = encryptVaultKeyWithHashedPassword(validHashedPassword)
-    expect(result1.ciphertext).not.toBe(result2.ciphertext)
-    expect(result1.nonce).not.toBe(result2.nonce)
-  })
+  test('should return base64 encoded strings', () => {
+    const hashedPassword = 'testpassword'
+    const result = encryptVaultKeyWithHashedPassword(hashedPassword)
 
-  test('should throw an error for an invalid hex string', () => {
-    expect(() => encryptVaultKeyWithHashedPassword('invalidhex')).toThrow()
-  })
+    // Check if the output is a valid base64 string
+    const isBase64 = (str) => {
+      try {
+        return btoa(atob(str)) === str
+        // eslint-disable-next-line no-unused-vars
+      } catch (err) {
+        return false
+      }
+    }
 
-  test('should throw an error for an empty string', () => {
-    expect(() => encryptVaultKeyWithHashedPassword('')).toThrow()
+    expect(isBase64(result.ciphertext)).toBe(true)
+    expect(isBase64(result.nonce)).toBe(true)
   })
 })

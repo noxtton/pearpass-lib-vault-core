@@ -309,7 +309,7 @@ describe('appDeps module functions (excluding encryption)', () => {
     test('pair calls pair with invite code and returns vault id', async () => {
       await appDeps.setStoragePath('file://base')
       await appDeps.vaultsInit('any-password')
-      const { vaultId, encryptionKey } = await appDeps.pair(
+      const { vaultId, encryptionKey } = await appDeps.pairActiveVault(
         'vault-id/invite-code'
       )
       expect(vaultId).toBe('vault-id')

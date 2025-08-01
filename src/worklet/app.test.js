@@ -26,7 +26,8 @@ import {
   ENCRYPTION_ENCRYPT_VAULT_KEY_WITH_HASHED_PASSWORD,
   ENCRYPTION_HASH_PASSWORD,
   ENCRYPTION_ENCRYPT_VAULT_WITH_KEY,
-  CLOSE
+  CLOSE,
+  CANCEL_PAIR_ACTIVE_VAULT
 } from './api'
 import { handleRpcCommand } from './app'
 import {
@@ -42,14 +43,15 @@ import {
   activeVaultList,
   activeVaultGet,
   createInvite,
-  pair,
+  pairActiveVault,
   initListener,
   encryptionInit,
   encryptionGet,
   encryptionAdd,
   getIsActiveVaultInitialized,
   vaultsGet,
-  closeAllInstances
+  closeAllInstances,
+  cancelPairActiveVault
 } from './appDeps'
 import { decryptVaultKey } from './decryptVaultKey'
 import { encryptVaultKeyWithHashedPassword } from './encryptVaultKeyWithHashedPassword'
@@ -87,7 +89,13 @@ jest.mock('./utils/isPearWorker', () => ({
   isPearWorker: jest.fn().mockReturnValue(false)
 }))
 jest.mock('./utils/workletLogger', () => ({
-  workletLogger: jest.fn()
+  workletLogger: {
+    log: jest.fn(),
+    error: jest.fn(),
+    warn: jest.fn(),
+    info: jest.fn(),
+    debug: jest.fn()
+  }
 }))
 
 jest.mock('./appDeps', () => ({
@@ -107,7 +115,8 @@ jest.mock('./appDeps', () => ({
   activeVaultList: jest.fn().mockResolvedValue([]),
   activeVaultGet: jest.fn().mockResolvedValue({}),
   createInvite: jest.fn().mockResolvedValue('invite-code'),
-  pair: jest.fn().mockResolvedValue({}),
+  pairActiveVault: jest.fn().mockResolvedValue({}),
+  cancelPairActiveVault: jest.fn().mockResolvedValue(),
   initListener: jest.fn().mockResolvedValue(),
   encryptionInit: jest.fn().mockResolvedValue(),
   encryptionGet: jest.fn().mockResolvedValue({}),
@@ -361,13 +370,28 @@ describe('RPC handler', () => {
   test('should handle PAIR_ACTIVE_VAULT command', async () => {
     mockRequest.command = PAIR_ACTIVE_VAULT
     mockRequest.data = JSON.stringify({ inviteCode: 'vault-id/invite-code' })
-    pair.mockResolvedValueOnce({ vaultId: 'vault-id', encryptionKey: 'key' })
+    pairActiveVault.mockResolvedValueOnce({
+      vaultId: 'vault-id',
+      encryptionKey: 'key'
+    })
 
     await handleRpcCommand(mockRequest)
 
-    expect(pair).toHaveBeenCalledWith('vault-id/invite-code')
+    expect(pairActiveVault).toHaveBeenCalledWith('vault-id/invite-code')
     expect(mockRequest.reply).toHaveBeenCalledWith(
       JSON.stringify({ data: { vaultId: 'vault-id', encryptionKey: 'key' } })
+    )
+  })
+
+  test('should handle CANCEL_PAIR_ACTIVE_VAULT command', async () => {
+    mockRequest.command = CANCEL_PAIR_ACTIVE_VAULT
+    cancelPairActiveVault.mockResolvedValueOnce()
+
+    await handleRpcCommand(mockRequest)
+
+    expect(cancelPairActiveVault).toHaveBeenCalled()
+    expect(mockRequest.reply).toHaveBeenCalledWith(
+      JSON.stringify({ success: true })
     )
   })
 
