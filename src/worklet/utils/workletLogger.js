@@ -12,29 +12,30 @@ class WorkletLogger {
     this.debugMode = enabled
   }
 
-  log(...args) {
+  _print(type, ...args) {
     if (!this.debugMode) return
-    this.output('[LOG] [BARE_RPC]', ...args)
+
+    this.output(`[${type}] [BARE_RPC]`, ...args)
+  }
+
+  log(...args) {
+    this._print('LOG', ...args)
   }
 
   debug(...args) {
-    if (!this.debugMode) return
-    this.output('[DEBUG] [BARE_RPC]', ...args)
+    this._print('DEBUG', ...args)
   }
 
   info(...args) {
-    if (!this.debugMode) return
-    this.output('[INFO]  [BARE_RPC]', ...args)
+    this._print('INFO', ...args)
   }
 
   warn(...args) {
-    if (!this.debugMode) return
-    this.output('[WARN]  [BARE_RPC]', ...args)
+    this._print('WARN', ...args)
   }
 
   error(...args) {
-    if (!this.debugMode) return
-    this.output('[ERROR] [BARE_RPC]', ...args)
+    this._print('ERROR', ...args)
   }
 }
 
