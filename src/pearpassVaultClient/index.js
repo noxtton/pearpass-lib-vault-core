@@ -49,14 +49,14 @@ export class PearpassVaultClient extends EventEmitter {
   }
 
   _handleError(parsedRes) {
-    const errorMessage = parsedRes?.error?.message
+    const error = parsedRes?.error
 
-    if (errorMessage?.includes('ELOCKED')) {
+    if (error?.includes('ELOCKED')) {
       throw new Error('ELOCKED')
     }
 
-    if (errorMessage) {
-      throw new Error(errorMessage)
+    if (error) {
+      throw new Error(error)
     }
   }
 
