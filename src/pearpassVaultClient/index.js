@@ -5,12 +5,7 @@ import FramedStream from 'framed-stream'
 
 import { receiveFileStream } from '../utils/recieveFileStream'
 import { sendFileStream } from '../utils/sendFileStream'
-import API from '../worklet/api'
-
-const API_BY_VALUE = Object.entries(API).reduce((acc, [key, value]) => {
-  acc[value] = key
-  return acc
-}, {})
+import { API, API_BY_VALUE } from '../worklet/api'
 
 export class PearpassVaultClient extends EventEmitter {
   constructor(ipc, storagePath, { debugMode = false } = {}) {

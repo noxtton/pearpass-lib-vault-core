@@ -1,4 +1,4 @@
-export default {
+export const API = {
   STORAGE_PATH_SET: 1,
 
   MASTER_VAULT_INIT: 2,
@@ -37,3 +37,8 @@ export default {
   CLOSE: 33,
   CANCEL_PAIR_ACTIVE_VAULT: 34
 }
+
+export const API_BY_VALUE = Object.entries(API).reduce((acc, [key, value]) => {
+  acc[value] = key
+  return acc
+}, {})

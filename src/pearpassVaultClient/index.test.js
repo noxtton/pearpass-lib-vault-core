@@ -1,5 +1,5 @@
 import { PearpassVaultClient } from './index'
-import API from '../worklet/api'
+import { API } from '../worklet/api'
 
 jest.mock('bare-rpc', () =>
   jest.fn().mockImplementation((ipc, callback) => ({

@@ -1,7 +1,7 @@
 import RPC from 'bare-rpc'
 import FramedStream from 'framed-stream'
 
-import API from './api'
+import { API, API_BY_VALUE } from './api'
 import {
   activeVaultAdd,
   activeVaultAddFile,
@@ -44,9 +44,20 @@ import { parseRequestData } from './utils/parseRequestData'
 import { workletLogger } from './utils/workletLogger'
 
 export const handleRpcCommand = async (req) => {
+  const commandName = API_BY_VALUE[req.command]
+
+  if (!commandName) {
+    req.reply(
+      JSON.stringify({
+        error: `Unknown command: ${req.command}`
+      })
+    )
+    return
+  }
+
   const requestData = parseRequestData(req.data)
 
-  workletLogger.log(`Received command: ${req.command}`, requestData)
+  workletLogger.log(`Received command: ${commandName}`, requestData ?? '')
 
   switch (req.command) {
     case API.STORAGE_PATH_SET:
