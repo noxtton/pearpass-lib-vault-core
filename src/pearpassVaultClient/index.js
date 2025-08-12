@@ -74,7 +74,7 @@ export class PearpassVaultClient extends EventEmitter {
       throw new Error('Unknown command:', command)
     }
 
-    this._logger.log('Sending request:', commandName, data)
+    this._logger.log('Sending request:', commandName, data ?? '')
 
     const req = this.rpc.request(command)
 
@@ -88,7 +88,7 @@ export class PearpassVaultClient extends EventEmitter {
 
     this._logger.log('Received response:', API_BY_VALUE[req.command], parsedRes)
 
-    return parsedRes
+    return parsedRes?.data
   }
 
   /**
