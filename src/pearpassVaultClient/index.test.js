@@ -1,36 +1,5 @@
 import { PearpassVaultClient } from './index'
-import {
-  STORAGE_PATH_SET,
-  VAULTS_INIT,
-  VAULTS_GET_STATUS,
-  VAULTS_CLOSE,
-  VAULTS_ADD,
-  VAULTS_LIST,
-  ACTIVE_VAULT_INIT,
-  ACTIVE_VAULT_GET_STATUS,
-  ACTIVE_VAULT_CLOSE,
-  ACTIVE_VAULT_ADD,
-  ACTIVE_VAULT_REMOVE,
-  ACTIVE_VAULT_LIST,
-  ACTIVE_VAULT_GET,
-  ACTIVE_VAULT_CREATE_INVITE,
-  PAIR_ACTIVE_VAULT,
-  INIT_LISTENER,
-  ENCRYPTION_INIT,
-  ENCRYPTION_GET_STATUS,
-  ENCRYPTION_GET,
-  ENCRYPTION_ADD,
-  ENCRYPTION_CLOSE,
-  ON_UPDATE,
-  ENCRYPTION_GET_DECRYPTION_KEY,
-  VAULTS_GET,
-  ENCRYPTION_HASH_PASSWORD,
-  ENCRYPTION_ENCRYPT_VAULT_KEY_WITH_HASHED_PASSWORD,
-  ENCRYPTION_ENCRYPT_VAULT_WITH_KEY,
-  CLOSE,
-  ACTIVE_VAULT_DELETE_INVITE,
-  ENCRYPTION_DECRYPT_VAULT_KEY
-} from '../worklet/api'
+import API from '../worklet/api'
 
 jest.mock('bare-rpc', () =>
   jest.fn().mockImplementation((ipc, callback) => ({
@@ -73,7 +42,7 @@ describe('PearpassVaultClient', () => {
 
       await client.setStoragePath('/new/path')
 
-      expect(client.rpc.request).toHaveBeenCalledWith(STORAGE_PATH_SET)
+      expect(client.rpc.request).toHaveBeenCalledWith(API.STORAGE_PATH_SET)
       expect(mockSend).toHaveBeenCalledWith(
         JSON.stringify({ path: '/new/path' })
       )
@@ -93,7 +62,7 @@ describe('PearpassVaultClient', () => {
       })
 
       await expect(client.vaultsInit(encryptionKey)).resolves.toBeUndefined()
-      expect(client.rpc.request).toHaveBeenCalledWith(VAULTS_INIT)
+      expect(client.rpc.request).toHaveBeenCalledWith(API.MASTER_VAULT_INIT)
       expect(mockSend).toHaveBeenCalledWith(JSON.stringify({ encryptionKey }))
       expect(mockReply).toHaveBeenCalledWith('utf8')
     })
@@ -124,7 +93,9 @@ describe('PearpassVaultClient', () => {
       })
 
       const result = await client.vaultsGetStatus()
-      expect(client.rpc.request).toHaveBeenCalledWith(VAULTS_GET_STATUS)
+      expect(client.rpc.request).toHaveBeenCalledWith(
+        API.MASTER_VAULT_GET_STATUS
+      )
       expect(mockSend).toHaveBeenCalled()
       expect(mockReply).toHaveBeenCalledWith('utf8')
       expect(result).toEqual(statusObj)
@@ -144,7 +115,7 @@ describe('PearpassVaultClient', () => {
       })
 
       const result = await client.vaultsGet(key)
-      expect(client.rpc.request).toHaveBeenCalledWith(VAULTS_GET)
+      expect(client.rpc.request).toHaveBeenCalledWith(API.MASTER_VAULT_GET)
       expect(mockSend).toHaveBeenCalledWith(JSON.stringify({ key }))
       expect(mockReply).toHaveBeenCalledWith('utf8')
       expect(result).toEqual(responseObj.data)
@@ -161,7 +132,7 @@ describe('PearpassVaultClient', () => {
       })
 
       await client.vaultsClose()
-      expect(client.rpc.request).toHaveBeenCalledWith(VAULTS_CLOSE)
+      expect(client.rpc.request).toHaveBeenCalledWith(API.MASTER_VAULT_CLOSE)
       expect(mockSend).toHaveBeenCalled()
       expect(mockReply).toHaveBeenCalledWith('utf8')
     })
@@ -179,7 +150,7 @@ describe('PearpassVaultClient', () => {
       })
 
       await client.vaultsAdd(key, vaultData)
-      expect(client.rpc.request).toHaveBeenCalledWith(VAULTS_ADD)
+      expect(client.rpc.request).toHaveBeenCalledWith(API.MASTER_VAULT_ADD)
       expect(mockSend).toHaveBeenCalledWith(
         JSON.stringify({ key, data: vaultData })
       )
@@ -200,7 +171,7 @@ describe('PearpassVaultClient', () => {
       })
 
       const result = await client.vaultsList(filterKey)
-      expect(client.rpc.request).toHaveBeenCalledWith(VAULTS_LIST)
+      expect(client.rpc.request).toHaveBeenCalledWith(API.MASTER_VAULT_LIST)
       expect(mockSend).toHaveBeenCalledWith(JSON.stringify({ filterKey }))
       expect(mockReply).toHaveBeenCalledWith('utf8')
       expect(result).toEqual(data)
@@ -220,7 +191,7 @@ describe('PearpassVaultClient', () => {
       })
 
       const result = await client.activeVaultInit({ id })
-      expect(client.rpc.request).toHaveBeenCalledWith(ACTIVE_VAULT_INIT)
+      expect(client.rpc.request).toHaveBeenCalledWith(API.ACTIVE_VAULT_INIT)
       expect(mockSend).toHaveBeenCalledWith(JSON.stringify({ id }))
       expect(mockReply).toHaveBeenCalledWith('utf8')
       expect(result).toEqual(responseObj)
@@ -238,7 +209,7 @@ describe('PearpassVaultClient', () => {
         reply: mockReply
       })
       const result = await client.activeVaultInit({ id, encryptionKey })
-      expect(client.rpc.request).toHaveBeenCalledWith(ACTIVE_VAULT_INIT)
+      expect(client.rpc.request).toHaveBeenCalledWith(API.ACTIVE_VAULT_INIT)
       expect(mockSend).toHaveBeenCalledWith(
         JSON.stringify({ id, encryptionKey })
       )
@@ -259,7 +230,9 @@ describe('PearpassVaultClient', () => {
       })
 
       const result = await client.activeVaultGetStatus()
-      expect(client.rpc.request).toHaveBeenCalledWith(ACTIVE_VAULT_GET_STATUS)
+      expect(client.rpc.request).toHaveBeenCalledWith(
+        API.ACTIVE_VAULT_GET_STATUS
+      )
       expect(mockSend).toHaveBeenCalled()
       expect(mockReply).toHaveBeenCalledWith('utf8')
       expect(result).toEqual(statusObj)
@@ -276,7 +249,7 @@ describe('PearpassVaultClient', () => {
       })
 
       await client.activeVaultClose()
-      expect(client.rpc.request).toHaveBeenCalledWith(ACTIVE_VAULT_CLOSE)
+      expect(client.rpc.request).toHaveBeenCalledWith(API.ACTIVE_VAULT_CLOSE)
       expect(mockSend).toHaveBeenCalled()
       expect(mockReply).toHaveBeenCalledWith('utf8')
     })
@@ -294,7 +267,7 @@ describe('PearpassVaultClient', () => {
       })
 
       await client.activeVaultAdd(key, data)
-      expect(client.rpc.request).toHaveBeenCalledWith(ACTIVE_VAULT_ADD)
+      expect(client.rpc.request).toHaveBeenCalledWith(API.ACTIVE_VAULT_ADD)
       expect(mockSend).toHaveBeenCalledWith(JSON.stringify({ key, data }))
       expect(mockReply).toHaveBeenCalledWith('utf8')
     })
@@ -311,7 +284,7 @@ describe('PearpassVaultClient', () => {
       })
 
       await client.activeVaultRemove(key)
-      expect(client.rpc.request).toHaveBeenCalledWith(ACTIVE_VAULT_REMOVE)
+      expect(client.rpc.request).toHaveBeenCalledWith(API.ACTIVE_VAULT_REMOVE)
       expect(mockSend).toHaveBeenCalledWith(JSON.stringify({ key }))
       expect(mockReply).toHaveBeenCalledWith('utf8')
     })
@@ -330,7 +303,7 @@ describe('PearpassVaultClient', () => {
       })
 
       const result = await client.activeVaultList(filterKey)
-      expect(client.rpc.request).toHaveBeenCalledWith(ACTIVE_VAULT_LIST)
+      expect(client.rpc.request).toHaveBeenCalledWith(API.ACTIVE_VAULT_LIST)
       expect(mockSend).toHaveBeenCalledWith(JSON.stringify({ filterKey }))
       expect(mockReply).toHaveBeenCalledWith('utf8')
       expect(result).toEqual(data)
@@ -350,7 +323,7 @@ describe('PearpassVaultClient', () => {
       })
 
       const result = await client.activeVaultGet(key)
-      expect(client.rpc.request).toHaveBeenCalledWith(ACTIVE_VAULT_GET)
+      expect(client.rpc.request).toHaveBeenCalledWith(API.ACTIVE_VAULT_GET)
       expect(mockSend).toHaveBeenCalledWith(JSON.stringify({ key }))
       expect(mockReply).toHaveBeenCalledWith('utf8')
       expect(result).toEqual(responseObj.data)
@@ -370,7 +343,7 @@ describe('PearpassVaultClient', () => {
 
       const result = await client.activeVaultCreateInvite()
       expect(client.rpc.request).toHaveBeenCalledWith(
-        ACTIVE_VAULT_CREATE_INVITE
+        API.ACTIVE_VAULT_CREATE_INVITE
       )
       expect(mockSend).toHaveBeenCalled()
       expect(mockReply).toHaveBeenCalledWith('utf8')
@@ -391,7 +364,7 @@ describe('PearpassVaultClient', () => {
 
       const result = await client.activeVaultDeleteInvite()
       expect(client.rpc.request).toHaveBeenCalledWith(
-        ACTIVE_VAULT_DELETE_INVITE
+        API.ACTIVE_VAULT_DELETE_INVITE
       )
       expect(mockSend).toHaveBeenCalled()
       expect(mockReply).toHaveBeenCalledWith('utf8')
@@ -412,7 +385,7 @@ describe('PearpassVaultClient', () => {
       })
 
       const result = await client.pair(inviteCode)
-      expect(client.rpc.request).toHaveBeenCalledWith(PAIR_ACTIVE_VAULT)
+      expect(client.rpc.request).toHaveBeenCalledWith(API.PAIR_ACTIVE_VAULT)
       expect(mockSend).toHaveBeenCalledWith(JSON.stringify({ inviteCode }))
       expect(mockReply).toHaveBeenCalledWith('utf8')
       expect(result).toEqual(responseObj.data)
@@ -432,7 +405,7 @@ describe('PearpassVaultClient', () => {
       })
 
       const result = await client.initListener({ vaultId })
-      expect(client.rpc.request).toHaveBeenCalledWith(INIT_LISTENER)
+      expect(client.rpc.request).toHaveBeenCalledWith(API.INIT_LISTENER)
       expect(mockSend).toHaveBeenCalledWith(JSON.stringify({ vaultId }))
       expect(mockReply).toHaveBeenCalledWith('utf8')
       expect(result).toEqual(responseObj.success)
@@ -451,7 +424,7 @@ describe('PearpassVaultClient', () => {
       })
 
       const result = await client.encryptionInit()
-      expect(client.rpc.request).toHaveBeenCalledWith(ENCRYPTION_INIT)
+      expect(client.rpc.request).toHaveBeenCalledWith(API.ENCRYPTION_INIT)
       expect(mockSend).toHaveBeenCalled()
       expect(mockReply).toHaveBeenCalledWith('utf8')
       expect(result).toEqual(responseObj.success)
@@ -470,7 +443,7 @@ describe('PearpassVaultClient', () => {
       })
 
       const result = await client.encryptionGetStatus()
-      expect(client.rpc.request).toHaveBeenCalledWith(ENCRYPTION_GET_STATUS)
+      expect(client.rpc.request).toHaveBeenCalledWith(API.ENCRYPTION_GET_STATUS)
       expect(mockSend).toHaveBeenCalled()
       expect(mockReply).toHaveBeenCalledWith('utf8')
       expect(result).toEqual(statusObj)
@@ -490,7 +463,7 @@ describe('PearpassVaultClient', () => {
       })
 
       const result = await client.encryptionGet(key)
-      expect(client.rpc.request).toHaveBeenCalledWith(ENCRYPTION_GET)
+      expect(client.rpc.request).toHaveBeenCalledWith(API.ENCRYPTION_GET)
       expect(mockSend).toHaveBeenCalledWith(JSON.stringify({ key }))
       expect(mockReply).toHaveBeenCalledWith('utf8')
       expect(result).toEqual(responseObj.data)
@@ -509,7 +482,7 @@ describe('PearpassVaultClient', () => {
       })
 
       await client.encryptionAdd(key, data)
-      expect(client.rpc.request).toHaveBeenCalledWith(ENCRYPTION_ADD)
+      expect(client.rpc.request).toHaveBeenCalledWith(API.ENCRYPTION_ADD)
       expect(mockSend).toHaveBeenCalledWith(JSON.stringify({ key, data }))
       expect(mockReply).toHaveBeenCalledWith('utf8')
     })
@@ -525,7 +498,7 @@ describe('PearpassVaultClient', () => {
       })
 
       await client.encryptionClose()
-      expect(client.rpc.request).toHaveBeenCalledWith(ENCRYPTION_CLOSE)
+      expect(client.rpc.request).toHaveBeenCalledWith(API.ENCRYPTION_CLOSE)
       expect(mockSend).toHaveBeenCalled()
       expect(mockReply).toHaveBeenCalledWith('utf8')
     })
@@ -536,7 +509,7 @@ describe('PearpassVaultClient', () => {
       const updateHandler = jest.fn()
       client.on('update', updateHandler)
       const callback = client.rpc._callback
-      callback({ command: ON_UPDATE })
+      callback({ command: API.ON_UPDATE })
       expect(updateHandler).toHaveBeenCalled()
     })
   })
@@ -636,7 +609,7 @@ describe('PearpassVaultClient', () => {
       const result = await client.getDecryptionKey(params)
 
       expect(client.rpc.request).toHaveBeenCalledWith(
-        ENCRYPTION_GET_DECRYPTION_KEY
+        API.ENCRYPTION_GET_DECRYPTION_KEY
       )
       expect(mockSend).toHaveBeenCalledWith(JSON.stringify(params))
       expect(mockReply).toHaveBeenCalledWith('utf8')
@@ -779,7 +752,7 @@ describe('PearpassVaultClient', () => {
       const result = await client.decryptVaultKey(decryptParams)
 
       expect(client.rpc.request).toHaveBeenCalledWith(
-        ENCRYPTION_DECRYPT_VAULT_KEY
+        API.ENCRYPTION_DECRYPT_VAULT_KEY
       )
       expect(mockSend).toHaveBeenCalledWith(JSON.stringify(decryptParams))
       expect(mockReply).toHaveBeenCalledWith('utf8')
@@ -893,7 +866,9 @@ describe('PearpassVaultClient', () => {
 
       const result = await client.hashPassword(password)
 
-      expect(client.rpc.request).toHaveBeenCalledWith(ENCRYPTION_HASH_PASSWORD)
+      expect(client.rpc.request).toHaveBeenCalledWith(
+        API.ENCRYPTION_HASH_PASSWORD
+      )
       expect(mockSend).toHaveBeenCalledWith(JSON.stringify({ password }))
       expect(mockReply).toHaveBeenCalledWith('utf8')
       expect(result).toEqual(hashedResult)
@@ -912,7 +887,7 @@ describe('PearpassVaultClient', () => {
       await client.hashPassword(password)
 
       expect(consoleSpy).toHaveBeenCalledWith(
-        ENCRYPTION_HASH_PASSWORD,
+        API.ENCRYPTION_HASH_PASSWORD,
         'Error',
         expect.any(Error)
       )
@@ -943,7 +918,7 @@ describe('PearpassVaultClient', () => {
         await client.encryptVaultKeyWithHashedPassword(hashedPassword)
 
       expect(client.rpc.request).toHaveBeenCalledWith(
-        ENCRYPTION_ENCRYPT_VAULT_KEY_WITH_HASHED_PASSWORD
+        API.ENCRYPTION_ENCRYPT_VAULT_KEY_WITH_HASHED_PASSWORD
       )
       expect(mockSend).toHaveBeenCalledWith(JSON.stringify({ hashedPassword }))
       expect(mockReply).toHaveBeenCalledWith('utf8')
@@ -965,7 +940,7 @@ describe('PearpassVaultClient', () => {
       await client.encryptVaultKeyWithHashedPassword(hashedPassword)
 
       expect(consoleSpy).toHaveBeenCalledWith(
-        ENCRYPTION_ENCRYPT_VAULT_KEY_WITH_HASHED_PASSWORD,
+        API.ENCRYPTION_ENCRYPT_VAULT_KEY_WITH_HASHED_PASSWORD,
         'error',
         expect.any(Error)
       )
@@ -996,7 +971,7 @@ describe('PearpassVaultClient', () => {
       const result = await client.encryptVaultWithKey(hashedPassword, key)
 
       expect(client.rpc.request).toHaveBeenCalledWith(
-        ENCRYPTION_ENCRYPT_VAULT_WITH_KEY
+        API.ENCRYPTION_ENCRYPT_VAULT_WITH_KEY
       )
       expect(mockSend).toHaveBeenCalledWith(
         JSON.stringify({ hashedPassword, key })
@@ -1021,7 +996,7 @@ describe('PearpassVaultClient', () => {
       await client.encryptVaultWithKey(hashedPassword, key)
 
       expect(consoleSpy).toHaveBeenCalledWith(
-        ENCRYPTION_ENCRYPT_VAULT_WITH_KEY,
+        API.ENCRYPTION_ENCRYPT_VAULT_WITH_KEY,
         'Error',
         expect.any(Error)
       )
@@ -1043,7 +1018,7 @@ describe('PearpassVaultClient', () => {
 
       await client.close()
 
-      expect(client.rpc.request).toHaveBeenCalledWith(CLOSE)
+      expect(client.rpc.request).toHaveBeenCalledWith(API.CLOSE)
       expect(mockSend).toHaveBeenCalled()
       expect(mockReply).toHaveBeenCalledWith('utf8')
       expect(logSpy).toHaveBeenCalledWith('Closing instances...')

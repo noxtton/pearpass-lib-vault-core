@@ -1,42 +1,7 @@
 import RPC from 'bare-rpc'
 import FramedStream from 'framed-stream'
 
-import {
-  ACTIVE_VAULT_ADD,
-  ACTIVE_VAULT_CLOSE,
-  ACTIVE_VAULT_CREATE_INVITE,
-  ACTIVE_VAULT_DELETE_INVITE,
-  ACTIVE_VAULT_FILE_ADD,
-  ACTIVE_VAULT_FILE_GET,
-  ACTIVE_VAULT_FILE_REMOVE,
-  ACTIVE_VAULT_GET,
-  ACTIVE_VAULT_GET_STATUS,
-  ACTIVE_VAULT_INIT,
-  ACTIVE_VAULT_LIST,
-  ACTIVE_VAULT_REMOVE,
-  CANCEL_PAIR_ACTIVE_VAULT,
-  CLOSE,
-  ENCRYPTION_ADD,
-  ENCRYPTION_CLOSE,
-  ENCRYPTION_DECRYPT_VAULT_KEY,
-  ENCRYPTION_ENCRYPT_VAULT_KEY_WITH_HASHED_PASSWORD,
-  ENCRYPTION_ENCRYPT_VAULT_WITH_KEY,
-  ENCRYPTION_GET,
-  ENCRYPTION_GET_DECRYPTION_KEY,
-  ENCRYPTION_GET_STATUS,
-  ENCRYPTION_HASH_PASSWORD,
-  ENCRYPTION_INIT,
-  INIT_LISTENER,
-  ON_UPDATE,
-  PAIR_ACTIVE_VAULT,
-  STORAGE_PATH_SET,
-  VAULTS_ADD,
-  VAULTS_CLOSE,
-  VAULTS_GET,
-  VAULTS_GET_STATUS,
-  VAULTS_INIT,
-  VAULTS_LIST
-} from './api'
+import API from './api'
 import {
   activeVaultAdd,
   activeVaultAddFile,
@@ -79,27 +44,35 @@ import { parseRequestData } from './utils/parseRequestData'
 import { workletLogger } from './utils/workletLogger'
 
 export const handleRpcCommand = async (req) => {
-  const data = parseRequestData(req.data)
+  const requestData = parseRequestData(req.data)
 
   switch (req.command) {
-    case STORAGE_PATH_SET:
-      workletLogger.log('Setting storage path:', data?.path)
+    case API.STORAGE_PATH_SET:
+      try {
+        workletLogger.log('Setting storage path:', requestData?.path)
 
-      setStoragePath(data?.path)
+        setStoragePath(requestData?.path)
 
-      req.reply(JSON.stringify({ success: true }))
+        req.reply(JSON.stringify({ success: true }))
 
-      workletLogger.log('Storage path set successfully:', data?.path)
+        workletLogger.log('Storage path set successfully:', requestData?.path)
+      } catch (error) {
+        req.reply(
+          JSON.stringify({
+            error: `Error setting storage path: ${error}`
+          })
+        )
+      }
 
       break
 
-    case VAULTS_INIT:
+    case API.MASTER_VAULT_INIT:
       try {
-        if (!data.encryptionKey) {
+        if (!requestData.encryptionKey) {
           throw new Error('Password is required')
         }
 
-        const res = await vaultsInit(data.encryptionKey)
+        const res = await vaultsInit(requestData.encryptionKey)
 
         req.reply(JSON.stringify({ success: true, res }))
       } catch (error) {
@@ -112,14 +85,14 @@ export const handleRpcCommand = async (req) => {
 
       break
 
-    case VAULTS_GET_STATUS:
+    case API.MASTER_VAULT_GET_STATUS:
       req.reply(JSON.stringify({ status: getIsVaultsInitialized() }))
 
       break
 
-    case VAULTS_GET:
+    case API.MASTER_VAULT_GET:
       try {
-        const res = await vaultsGet(data?.key)
+        const res = await vaultsGet(requestData?.key)
 
         req.reply(JSON.stringify({ data: res }))
       } catch (error) {
@@ -132,7 +105,7 @@ export const handleRpcCommand = async (req) => {
 
       break
 
-    case VAULTS_CLOSE:
+    case API.MASTER_VAULT_CLOSE:
       try {
         await closeVaultsInstance()
 
@@ -147,9 +120,9 @@ export const handleRpcCommand = async (req) => {
 
       break
 
-    case VAULTS_ADD:
+    case API.MASTER_VAULT_ADD:
       try {
-        await vaultsAdd(data?.key, data?.data)
+        await vaultsAdd(requestData?.key, requestData?.data)
 
         req.reply(JSON.stringify({ success: true }))
       } catch (error) {
@@ -162,7 +135,7 @@ export const handleRpcCommand = async (req) => {
 
       break
 
-    case ACTIVE_VAULT_FILE_ADD:
+    case API.ACTIVE_VAULT_FILE_ADD:
       try {
         const stream = req.createRequestStream()
 
@@ -186,16 +159,16 @@ export const handleRpcCommand = async (req) => {
 
       break
 
-    case ACTIVE_VAULT_FILE_GET:
+    case API.ACTIVE_VAULT_FILE_GET:
       try {
-        const file = await activeVaultGetFile(data?.key)
+        const file = await activeVaultGetFile(requestData?.key)
 
         const stream = req.createResponseStream()
 
         sendFileStream({
           stream,
           buffer: file,
-          metaData: { key: data?.key }
+          metaData: { key: requestData?.key }
         })
       } catch (error) {
         req.reply(
@@ -207,9 +180,9 @@ export const handleRpcCommand = async (req) => {
 
       break
 
-    case ACTIVE_VAULT_FILE_REMOVE:
+    case API.ACTIVE_VAULT_FILE_REMOVE:
       try {
-        await activeVaultRemoveFile(data?.key)
+        await activeVaultRemoveFile(requestData?.key)
 
         req.reply(JSON.stringify({ success: true }))
       } catch (error) {
@@ -222,9 +195,9 @@ export const handleRpcCommand = async (req) => {
 
       break
 
-    case VAULTS_LIST:
+    case API.MASTER_VAULT_LIST:
       try {
-        const vaults = await vaultsList(data?.filterKey)
+        const vaults = await vaultsList(requestData?.filterKey)
 
         req.reply(JSON.stringify({ data: vaults }))
       } catch (error) {
@@ -237,9 +210,12 @@ export const handleRpcCommand = async (req) => {
 
       break
 
-    case ACTIVE_VAULT_INIT:
+    case API.ACTIVE_VAULT_INIT:
       try {
-        await initActiveVaultInstance(data?.id, data?.encryptionKey)
+        await initActiveVaultInstance(
+          requestData?.id,
+          requestData?.encryptionKey
+        )
 
         req.reply(JSON.stringify({ success: true }))
       } catch (error) {
@@ -252,12 +228,12 @@ export const handleRpcCommand = async (req) => {
 
       break
 
-    case ACTIVE_VAULT_GET_STATUS:
+    case API.ACTIVE_VAULT_GET_STATUS:
       req.reply(JSON.stringify({ status: getIsActiveVaultInitialized() }))
 
       break
 
-    case ACTIVE_VAULT_CLOSE:
+    case API.ACTIVE_VAULT_CLOSE:
       try {
         await closeActiveVaultInstance()
 
@@ -272,9 +248,9 @@ export const handleRpcCommand = async (req) => {
 
       break
 
-    case ACTIVE_VAULT_ADD:
+    case API.ACTIVE_VAULT_ADD:
       try {
-        await activeVaultAdd(data?.key, data?.data)
+        await activeVaultAdd(requestData?.key, requestData?.data)
 
         req.reply(JSON.stringify({ success: true }))
       } catch (error) {
@@ -287,9 +263,9 @@ export const handleRpcCommand = async (req) => {
 
       break
 
-    case ACTIVE_VAULT_REMOVE:
+    case API.ACTIVE_VAULT_REMOVE:
       try {
-        await vaultRemove(data?.key)
+        await vaultRemove(requestData?.key)
 
         req.reply(JSON.stringify({ success: true }))
       } catch (error) {
@@ -302,9 +278,9 @@ export const handleRpcCommand = async (req) => {
 
       break
 
-    case ACTIVE_VAULT_LIST:
+    case API.ACTIVE_VAULT_LIST:
       try {
-        const res = await activeVaultList(data?.filterKey)
+        const res = await activeVaultList(requestData?.filterKey)
 
         req.reply(JSON.stringify({ data: res }))
       } catch (error) {
@@ -317,9 +293,9 @@ export const handleRpcCommand = async (req) => {
 
       break
 
-    case ACTIVE_VAULT_GET:
+    case API.ACTIVE_VAULT_GET:
       try {
-        const res = await activeVaultGet(data?.key)
+        const res = await activeVaultGet(requestData?.key)
 
         req.reply(JSON.stringify({ data: res }))
       } catch (error) {
@@ -332,7 +308,7 @@ export const handleRpcCommand = async (req) => {
 
       break
 
-    case ACTIVE_VAULT_CREATE_INVITE:
+    case API.ACTIVE_VAULT_CREATE_INVITE:
       try {
         const invite = await createInvite()
 
@@ -347,7 +323,7 @@ export const handleRpcCommand = async (req) => {
 
       break
 
-    case ACTIVE_VAULT_DELETE_INVITE:
+    case API.ACTIVE_VAULT_DELETE_INVITE:
       try {
         await deleteInvite()
 
@@ -362,19 +338,19 @@ export const handleRpcCommand = async (req) => {
 
       break
 
-    case PAIR_ACTIVE_VAULT:
+    case API.PAIR_ACTIVE_VAULT:
       try {
-        workletLogger.log('Pairing with invite code:', data.inviteCode)
+        workletLogger.log('Pairing with invite code:', requestData.inviteCode)
 
         const { vaultId, encryptionKey } = await pairActiveVault(
-          data.inviteCode
+          requestData.inviteCode
         )
 
         req.reply(JSON.stringify({ data: { vaultId, encryptionKey } }))
 
         workletLogger.log(
           'Pairing successful with invite code:',
-          data.inviteCode,
+          requestData.inviteCode,
           'Vault ID:',
           vaultId,
           'Encryption Key:',
@@ -392,7 +368,7 @@ export const handleRpcCommand = async (req) => {
 
       break
 
-    case CANCEL_PAIR_ACTIVE_VAULT:
+    case API.CANCEL_PAIR_ACTIVE_VAULT:
       try {
         workletLogger.log('Canceling pairing with active vault')
 
@@ -413,18 +389,18 @@ export const handleRpcCommand = async (req) => {
 
       break
 
-    case INIT_LISTENER:
+    case API.INIT_LISTENER:
       try {
         if (!getIsActiveVaultInitialized()) {
           throw new Error('Active vault not initialized')
         }
 
-        const vaultId = data.vaultId
+        const vaultId = requestData.vaultId
 
         await initListener({
           vaultId: vaultId,
           onUpdate: () => {
-            const req = rpc.request(ON_UPDATE)
+            const req = rpc.request(API.ON_UPDATE)
 
             req.send()
           }
@@ -441,7 +417,7 @@ export const handleRpcCommand = async (req) => {
 
       break
 
-    case ENCRYPTION_INIT:
+    case API.ENCRYPTION_INIT:
       try {
         await encryptionInit('encryption')
 
@@ -456,14 +432,14 @@ export const handleRpcCommand = async (req) => {
 
       break
 
-    case ENCRYPTION_GET_STATUS:
+    case API.ENCRYPTION_GET_STATUS:
       req.reply(JSON.stringify({ status: getIsEncryptionInitialized() }))
 
       break
 
-    case ENCRYPTION_GET:
+    case API.ENCRYPTION_GET:
       try {
-        const res = await encryptionGet(data?.key)
+        const res = await encryptionGet(requestData?.key)
 
         req.reply(JSON.stringify({ data: res }))
       } catch (error) {
@@ -476,9 +452,9 @@ export const handleRpcCommand = async (req) => {
 
       break
 
-    case ENCRYPTION_ADD:
+    case API.ENCRYPTION_ADD:
       try {
-        await encryptionAdd(data?.key, data?.data)
+        await encryptionAdd(requestData?.key, requestData?.data)
 
         req.reply(JSON.stringify({ success: true }))
       } catch (error) {
@@ -491,9 +467,9 @@ export const handleRpcCommand = async (req) => {
 
       break
 
-    case ENCRYPTION_HASH_PASSWORD:
+    case API.ENCRYPTION_HASH_PASSWORD:
       try {
-        const res = hashPassword(data.password)
+        const res = hashPassword(requestData.password)
 
         req.reply(JSON.stringify({ data: res }))
       } catch (error) {
@@ -506,9 +482,11 @@ export const handleRpcCommand = async (req) => {
 
       break
 
-    case ENCRYPTION_ENCRYPT_VAULT_KEY_WITH_HASHED_PASSWORD:
+    case API.ENCRYPTION_ENCRYPT_VAULT_KEY_WITH_HASHED_PASSWORD:
       try {
-        const res = encryptVaultKeyWithHashedPassword(data.hashedPassword)
+        const res = encryptVaultKeyWithHashedPassword(
+          requestData.hashedPassword
+        )
 
         req.reply(JSON.stringify({ data: res }))
       } catch (error) {
@@ -521,9 +499,12 @@ export const handleRpcCommand = async (req) => {
 
       break
 
-    case ENCRYPTION_ENCRYPT_VAULT_WITH_KEY:
+    case API.ENCRYPTION_ENCRYPT_VAULT_WITH_KEY:
       try {
-        const res = encryptVaultWithKey(data.hashedPassword, data.key)
+        const res = encryptVaultWithKey(
+          requestData.hashedPassword,
+          requestData.key
+        )
 
         req.reply(JSON.stringify({ data: res }))
       } catch (error) {
@@ -536,9 +517,9 @@ export const handleRpcCommand = async (req) => {
 
       break
 
-    case ENCRYPTION_GET_DECRYPTION_KEY:
+    case API.ENCRYPTION_GET_DECRYPTION_KEY:
       try {
-        const { salt, password } = data
+        const { salt, password } = requestData
 
         const hashedPassword = getDecryptionKey({
           password,
@@ -556,9 +537,9 @@ export const handleRpcCommand = async (req) => {
 
       break
 
-    case ENCRYPTION_DECRYPT_VAULT_KEY:
+    case API.ENCRYPTION_DECRYPT_VAULT_KEY:
       try {
-        const { ciphertext, nonce, hashedPassword } = data
+        const { ciphertext, nonce, hashedPassword } = requestData
 
         const res = decryptVaultKey({
           ciphertext,
@@ -577,7 +558,7 @@ export const handleRpcCommand = async (req) => {
 
       break
 
-    case ENCRYPTION_CLOSE:
+    case API.ENCRYPTION_CLOSE:
       try {
         await encryptionClose()
 
@@ -592,7 +573,7 @@ export const handleRpcCommand = async (req) => {
 
       break
 
-    case CLOSE:
+    case API.CLOSE:
       try {
         await closeAllInstances()
 
