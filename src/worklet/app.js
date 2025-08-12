@@ -44,18 +44,16 @@ import { parseRequestData } from './utils/parseRequestData'
 import { workletLogger } from './utils/workletLogger'
 
 export const handleRpcCommand = async (req) => {
+  workletLogger.log(`Received command: ${req.command}`, requestData)
+
   const requestData = parseRequestData(req.data)
 
   switch (req.command) {
     case API.STORAGE_PATH_SET:
       try {
-        workletLogger.log('Setting storage path:', requestData?.path)
-
         setStoragePath(requestData?.path)
 
         req.reply(JSON.stringify({ success: true }))
-
-        workletLogger.log('Storage path set successfully:', requestData?.path)
       } catch (error) {
         req.reply(
           JSON.stringify({
