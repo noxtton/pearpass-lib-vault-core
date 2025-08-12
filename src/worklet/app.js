@@ -86,7 +86,7 @@ export const handleRpcCommand = async (req) => {
       break
 
     case API.MASTER_VAULT_GET_STATUS:
-      req.reply(JSON.stringify({ status: getIsVaultsInitialized() }))
+      req.reply(JSON.stringify({ data: { status: getIsVaultsInitialized() } }))
 
       break
 
@@ -229,7 +229,9 @@ export const handleRpcCommand = async (req) => {
       break
 
     case API.ACTIVE_VAULT_GET_STATUS:
-      req.reply(JSON.stringify({ status: getIsActiveVaultInitialized() }))
+      req.reply(
+        JSON.stringify({ data: { status: getIsActiveVaultInitialized() } })
+      )
 
       break
 
@@ -433,7 +435,9 @@ export const handleRpcCommand = async (req) => {
       break
 
     case API.ENCRYPTION_GET_STATUS:
-      req.reply(JSON.stringify({ status: getIsEncryptionInitialized() }))
+      req.reply(
+        JSON.stringify({ data: { status: getIsEncryptionInitialized() } })
+      )
 
       break
 
