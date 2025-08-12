@@ -116,7 +116,7 @@ export class PearpassVaultClient extends EventEmitter {
         throw new Error(parsedRes.error)
       }
 
-      this._logger.log('Vaults initialized', res)
+      this._logger.log('Vaults initialized', parsedRes)
     } catch (error) {
       this._logger.error('Error initializing vaults:', error)
 
@@ -136,9 +136,11 @@ export class PearpassVaultClient extends EventEmitter {
 
       const res = await req.reply('utf8')
 
-      this._logger.log('Vaults status:', res)
+      const parsedRes = JSON.parse(res)
 
-      return JSON.parse(res)
+      this._logger.log('Vaults status:', parsedRes)
+
+      return parsedRes
     } catch (error) {
       this._logger.error('Error getting vaults status:', error)
     }
@@ -154,11 +156,11 @@ export class PearpassVaultClient extends EventEmitter {
 
       const res = await req.reply('utf8')
 
-      this._logger.log('Vaults:', res)
+      const parsedRes = JSON.parse(res)
 
-      const parsedRed = JSON.parse(res)
+      this._logger.log('Vaults:', parsedRes)
 
-      return parsedRed.data
+      return parsedRes.data
     } catch (error) {
       this._logger.error('Error getting from vaults:', error)
     }
@@ -269,9 +271,9 @@ export class PearpassVaultClient extends EventEmitter {
 
       const res = await req.reply('utf8')
 
-      this._logger.log('Vaults listed:', res)
-
       const parsedRes = JSON.parse(res)
+
+      this._logger.log('Vaults listed:', parsedRes)
 
       return parsedRes.data
     } catch (error) {
@@ -289,9 +291,10 @@ export class PearpassVaultClient extends EventEmitter {
 
       const res = await req.reply('utf8')
 
-      this._logger.log('Active vault initialized:', res)
+      const parsedRes = JSON.parse(res)
+      this._logger.log('Active vault initialized:', parsedRes)
 
-      return JSON.parse(res)
+      return parsedRes
     } catch (error) {
       this._logger.error('Error initializing active vault:', error)
     }
@@ -306,10 +309,11 @@ export class PearpassVaultClient extends EventEmitter {
       req.send()
 
       const res = await req.reply('utf8')
+      const parsedRes = JSON.parse(res)
 
-      this._logger.log('Active vault status:', res)
+      this._logger.log('Active vault status:', parsedRes)
 
-      return JSON.parse(res)
+      return parsedRes
     } catch (error) {
       this._logger.error('Error getting active vault status:', error)
     }
@@ -392,12 +396,11 @@ export class PearpassVaultClient extends EventEmitter {
       req.send(JSON.stringify({ key }))
 
       const res = await req.reply('utf8')
+      const parsedRes = JSON.parse(res)
 
-      this._logger.log('Active vault:', res)
+      this._logger.log('Active vault:', parsedRes)
 
-      const parsedRed = JSON.parse(res)
-
-      return parsedRed.data
+      return parsedRes.data
     } catch (error) {
       this._logger.error('Error getting active vault:', error)
     }
@@ -412,10 +415,9 @@ export class PearpassVaultClient extends EventEmitter {
       req.send()
 
       const res = await req.reply('utf8')
-
-      this._logger.log('Invite created:', res)
-
       const parsedRes = JSON.parse(res)
+
+      this._logger.log('Invite created:', parsedRes)
 
       return parsedRes.data
     } catch (error) {
@@ -432,10 +434,9 @@ export class PearpassVaultClient extends EventEmitter {
       req.send()
 
       const res = await req.reply('utf8')
-
-      this._logger.log('Invite deleted:', res)
-
       const parsedRes = JSON.parse(res)
+
+      this._logger.log('Invite deleted:', parsedRes)
 
       return parsedRes.success
     } catch (error) {
@@ -452,10 +453,9 @@ export class PearpassVaultClient extends EventEmitter {
       req.send(JSON.stringify({ inviteCode }))
 
       const res = await req.reply('utf8')
-
-      this._logger.log('Paired:', res)
-
       const parsedRes = JSON.parse(res)
+
+      this._logger.log('Paired:', parsedRes)
 
       return parsedRes.data
     } catch (error) {
@@ -492,10 +492,9 @@ export class PearpassVaultClient extends EventEmitter {
       req.send(JSON.stringify({ vaultId }))
 
       const res = await req.reply('utf8')
-
-      this._logger.log('Listener initialized:', res)
-
       const parsedRes = JSON.parse(res)
+
+      this._logger.log('Listener initialized:', parsedRes)
 
       return parsedRes.success
     } catch (error) {
@@ -512,10 +511,9 @@ export class PearpassVaultClient extends EventEmitter {
       req.send()
 
       const res = await req.reply('utf8')
-
-      this._logger.log('Encryption initialized:', res)
-
       const parsedRes = JSON.parse(res)
+
+      this._logger.log('Encryption initialized:', parsedRes)
 
       return parsedRes.success
     } catch (error) {
@@ -532,10 +530,11 @@ export class PearpassVaultClient extends EventEmitter {
       req.send()
 
       const res = await req.reply('utf8')
+      const parsedRes = JSON.parse(res)
 
-      this._logger.log('Encryption status:', res)
+      this._logger.log('Encryption status:', parsedRes)
 
-      return JSON.parse(res)
+      return parsedRes
     } catch (error) {
       this._logger.error('Error getting encryption status:', error)
     }
@@ -550,10 +549,9 @@ export class PearpassVaultClient extends EventEmitter {
       req.send(JSON.stringify({ key }))
 
       const res = await req.reply('utf8')
-
-      this._logger.log('Encryption:', res)
-
       const parsedRes = JSON.parse(res)
+
+      this._logger.log('Encryption:', parsedRes)
 
       return parsedRes.data
     } catch (error) {
