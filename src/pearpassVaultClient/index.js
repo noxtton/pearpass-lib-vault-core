@@ -5,42 +5,7 @@ import FramedStream from 'framed-stream'
 
 import { receiveFileStream } from '../utils/recieveFileStream'
 import { sendFileStream } from '../utils/sendFileStream'
-import {
-  ACTIVE_VAULT_ADD,
-  ACTIVE_VAULT_CLOSE,
-  ACTIVE_VAULT_CREATE_INVITE,
-  ACTIVE_VAULT_DELETE_INVITE,
-  ACTIVE_VAULT_FILE_ADD,
-  ACTIVE_VAULT_FILE_GET,
-  ACTIVE_VAULT_FILE_REMOVE,
-  ACTIVE_VAULT_GET,
-  ACTIVE_VAULT_GET_STATUS,
-  ACTIVE_VAULT_INIT,
-  ACTIVE_VAULT_LIST,
-  ACTIVE_VAULT_REMOVE,
-  CANCEL_PAIR_ACTIVE_VAULT,
-  CLOSE,
-  ENCRYPTION_ADD,
-  ENCRYPTION_CLOSE,
-  ENCRYPTION_DECRYPT_VAULT_KEY,
-  ENCRYPTION_ENCRYPT_VAULT_KEY_WITH_HASHED_PASSWORD,
-  ENCRYPTION_ENCRYPT_VAULT_WITH_KEY,
-  ENCRYPTION_GET,
-  ENCRYPTION_GET_DECRYPTION_KEY,
-  ENCRYPTION_GET_STATUS,
-  ENCRYPTION_HASH_PASSWORD,
-  ENCRYPTION_INIT,
-  INIT_LISTENER,
-  ON_UPDATE,
-  PAIR_ACTIVE_VAULT,
-  STORAGE_PATH_SET,
-  VAULTS_ADD,
-  VAULTS_CLOSE,
-  VAULTS_GET,
-  VAULTS_GET_STATUS,
-  VAULTS_INIT,
-  VAULTS_LIST
-} from '../worklet/api'
+import { API, API_BY_VALUE } from '../worklet/api'
 
 export class PearpassVaultClient extends EventEmitter {
   constructor(ipc, storagePath, { debugMode = false } = {}) {
@@ -63,7 +28,7 @@ export class PearpassVaultClient extends EventEmitter {
 
     this.rpc = new RPC(new FramedStream(ipc), (req) => {
       switch (req.command) {
-        case ON_UPDATE:
+        case API.ON_UPDATE:
           this.emit('update')
 
           break
@@ -78,133 +43,434 @@ export class PearpassVaultClient extends EventEmitter {
     }
   }
 
+  _handleError(parsedRes) {
+    const error = parsedRes?.error
+
+    if (error?.includes('ELOCKED')) {
+      throw new Error('ELOCKED')
+    }
+
+    if (error) {
+      throw new Error(error)
+    }
+  }
+
+  /**
+   * Handles requests to the RPC server.
+   * @param {Object} param0 - The request parameters.
+   * @param {string} param0.command - The API command to call.
+   * @param {Object | undefined} param0.data - The data to send with the request.
+   * @returns {Promise<Object>} The response from the server.
+   */
+  async _handleRequest({ command, data }) {
+    const commandName = API_BY_VALUE[command]
+
+    if (!commandName) {
+      throw new Error('Unknown command:', command)
+    }
+
+    this._logger.log('Sending request:', commandName, data ?? '')
+
+    const req = this.rpc.request(command)
+
+    req.send(data ? JSON.stringify(data) : undefined)
+
+    const res = await req.reply('utf8')
+
+    const parsedRes = JSON.parse(res)
+
+    this._handleError(parsedRes)
+
+    this._logger.log('Received response:', API_BY_VALUE[req.command], parsedRes)
+
+    return parsedRes?.data
+  }
+
+  /**
+   * Sets the storage path for the vault.
+   * @param {string} path - The storage path to set.
+   * @returns {Promise<void>}
+   */
   async setStoragePath(path) {
-    try {
-      const req = this.rpc.request(STORAGE_PATH_SET)
-
-      this._logger.log('Setting storage path:', path)
-
-      req.send(JSON.stringify({ path }))
-
-      this._logger.log('Request sent to set storage path:', req.sent)
-
-      await req.reply()
-
-      this._logger.log('Storage path set:', path)
-    } catch (error) {
-      this._logger.error('Error setting storage path:', error)
-    }
+    return this._handleRequest({
+      command: API.STORAGE_PATH_SET,
+      data: { path }
+    })
   }
 
+  /**
+   * Initializes the vault.
+   * @param {string} encryptionKey - The encryption key to use.
+   * @returns {Promise<void>}
+   */
   async vaultsInit(encryptionKey) {
-    try {
-      const req = this.rpc.request(VAULTS_INIT)
-
-      this._logger.log('Initializing vaults...', encryptionKey)
-
-      req.send(
-        JSON.stringify({
-          encryptionKey: encryptionKey
-        })
-      )
-
-      const res = await req.reply('utf8')
-
-      const parsedRes = JSON.parse(res)
-
-      if (parsedRes.error) {
-        throw new Error(parsedRes.error)
-      }
-
-      this._logger.log('Vaults initialized', parsedRes)
-    } catch (error) {
-      this._logger.error('Error initializing vaults:', error)
-
-      if (error.message.includes('ELOCKED')) {
-        throw new Error('ELOCKED')
-      }
-    }
+    return this._handleRequest({
+      command: API.MASTER_VAULT_INIT,
+      data: { encryptionKey }
+    })
   }
 
+  /**
+   * Gets the status of the vault.
+   * @returns {Promise<Object>} The status of the vault.
+   */
   async vaultsGetStatus() {
-    try {
-      const req = this.rpc.request(VAULTS_GET_STATUS)
-
-      this._logger.log('Getting vaults status...')
-
-      req.send()
-
-      const res = await req.reply('utf8')
-
-      const parsedRes = JSON.parse(res)
-
-      this._logger.log('Vaults status:', parsedRes)
-
-      return parsedRes
-    } catch (error) {
-      this._logger.error('Error getting vaults status:', error)
-    }
+    return this._handleRequest({
+      command: API.MASTER_VAULT_GET_STATUS
+    })
   }
 
+  /**
+   * Gets a vault by its key.
+   * @param {string} key - The key of the vault to get.
+   * @returns {Promise<Object>} The vault data.
+   */
   async vaultsGet(key) {
-    try {
-      const req = this.rpc.request(VAULTS_GET)
-
-      this._logger.log('Getting from vaults:', key)
-
-      req.send(JSON.stringify({ key }))
-
-      const res = await req.reply('utf8')
-
-      const parsedRes = JSON.parse(res)
-
-      this._logger.log('Vaults:', parsedRes)
-
-      return parsedRes.data
-    } catch (error) {
-      this._logger.error('Error getting from vaults:', error)
-    }
+    return this._handleRequest({
+      command: API.MASTER_VAULT_GET,
+      data: { key }
+    })
   }
 
+  /**
+   * Closes the master vault.
+   * @returns {Promise<void>}
+   */
   async vaultsClose() {
-    try {
-      const req = this.rpc.request(VAULTS_CLOSE)
-
-      this._logger.log('Closing vaults...')
-
-      req.send()
-
-      const res = await req.reply('utf8')
-
-      this._logger.log('Vaults closed', res)
-    } catch (error) {
-      this._logger.error('Error closing vaults:', error)
-    }
+    return this._handleRequest({
+      command: API.MASTER_VAULT_CLOSE
+    })
   }
 
-  async vaultsAdd(key, vault) {
-    try {
-      const req = this.rpc.request(VAULTS_ADD)
-
-      this._logger.log('Adding vault data in vaults:', {
-        key,
-        data: vault
-      })
-
-      req.send(JSON.stringify({ key, data: vault }))
-
-      await req.reply('utf8')
-      this._logger.log('Vault added:', { key, data: vault })
-    } catch (error) {
-      this._logger.error('Error adding vault:', error)
-    }
+  /**
+   * Adds a vault.
+   * @param {string} key - The key of the vault to add.
+   * @param {Object} data - The vault data to add.
+   * @returns {Promise<void>}
+   */
+  async vaultsAdd(key, data) {
+    return this._handleRequest({
+      command: API.MASTER_VAULT_ADD,
+      data: { key, data }
+    })
   }
 
+  /**
+   * Gets a file from the active vault.
+   * @param {string} key - The key of the vault to get the file from.
+   * @returns {Promise<Object>} The file data.
+   */
+  async activeVaultGetFile(key) {
+    return this._handleRequest({
+      command: API.ACTIVE_VAULT_FILE_GET,
+      data: { key }
+    })
+  }
+
+  /**
+   * Removes a file from the active vault.
+   * @param {string} key - The key of the vault to remove the file from.
+   * @returns {Promise<void>}
+   */
+  async activeVaultRemoveFile(key) {
+    return this._handleRequest({
+      command: API.ACTIVE_VAULT_FILE_REMOVE,
+      data: { key }
+    })
+  }
+
+  /**
+   * Lists all vaults.
+   * @param {string} filterKey - The key to filter vaults by.
+   * @returns {Promise<Array<Object>>} The list of vaults.
+   */
+  async vaultsList(filterKey) {
+    return this._handleRequest({
+      command: API.MASTER_VAULT_LIST,
+      data: { filterKey }
+    })
+  }
+
+  /**
+   * Initializes the active vault.
+   * @param {Object} params - The parameters for initializing the vault.
+   * @param {string} params.id - The ID of the vault.
+   * @param {string} params.encryptionKey - The encryption key for the vault.
+   * @returns {Promise<Object>}
+   */
+  async activeVaultInit({ id, encryptionKey }) {
+    return this._handleRequest({
+      command: API.ACTIVE_VAULT_INIT,
+      data: { id, encryptionKey }
+    })
+  }
+
+  /**
+   * Gets the status of the active vault.
+   * @returns {Promise<Object>}
+   */
+  async activeVaultGetStatus() {
+    return this._handleRequest({
+      command: API.ACTIVE_VAULT_GET_STATUS
+    })
+  }
+
+  /**
+   * Closes the active vault.
+   * @returns {Promise<Object>}
+   */
+  async activeVaultClose() {
+    return this._handleRequest({
+      command: API.ACTIVE_VAULT_CLOSE
+    })
+  }
+
+  /**
+   * Adds a file to the active vault.
+   * @param {string} key - The key of the vault to add the file to.
+   * @param {Buffer} buffer - The file data to add.
+   * @returns {Promise<object>}
+   */
+  async activeVaultAdd(key, data) {
+    return this._handleRequest({
+      command: API.ACTIVE_VAULT_ADD,
+      data: { key, data }
+    })
+  }
+
+  /**
+   * Removes a record from the active vault.
+   * @param {string} key - The key of the record to remove.
+   * @returns {Promise<object>}
+   */
+  async activeVaultRemove(key) {
+    return this._handleRequest({
+      command: API.ACTIVE_VAULT_REMOVE,
+      data: { key }
+    })
+  }
+
+  /**
+   * Lists all records in the active vault.
+   * @param {string} filterKey - The key to filter records by.
+   * @returns {Promise<Array<Object>>} The list of records.
+   */
+  async activeVaultList(filterKey) {
+    return this._handleRequest({
+      command: API.ACTIVE_VAULT_LIST,
+      data: { filterKey }
+    })
+  }
+
+  /**
+   * Gets a record from the active vault.
+   * @param {string} key - The key of the record to get.
+   * @returns {Promise<Object>}
+   */
+  async activeVaultGet(key) {
+    return this._handleRequest({
+      command: API.ACTIVE_VAULT_GET,
+      data: { key }
+    })
+  }
+
+  /**
+   * Creates an invite for the active vault.
+   * @returns {Promise<Object>}
+   */
+  async activeVaultCreateInvite() {
+    return this._handleRequest({
+      command: API.ACTIVE_VAULT_CREATE_INVITE
+    })
+  }
+
+  /**
+   * Deletes an invite for the active vault.
+   * @returns {Promise<Object>}
+   */
+  async activeVaultDeleteInvite() {
+    return this._handleRequest({
+      command: API.ACTIVE_VAULT_DELETE_INVITE
+    })
+  }
+
+  /**
+   * Pairs the active vault with an invite code.
+   * @param {string} inviteCode - The invite code to pair with.
+   * @returns {Promise<Object>}
+   */
+  async pairActiveVault(inviteCode) {
+    return this._handleRequest({
+      command: API.PAIR_ACTIVE_VAULT,
+      data: { inviteCode }
+    })
+  }
+
+  /**
+   * Cancels the pairing of the active vault.
+   * @returns {Promise<Object>}
+   */
+  async cancelPairActiveVault() {
+    return this._handleRequest({
+      command: API.CANCEL_PAIR_ACTIVE_VAULT
+    })
+  }
+
+  /**
+   * Initializes the listener for the active vault.
+   * @param {Object} params - The parameters for initializing the listener.
+   * @param {string} params.vaultId - The ID of the vault.
+   * @returns {Promise<Object>}
+   */
+  async initListener({ vaultId }) {
+    return this._handleRequest({
+      command: API.INIT_LISTENER,
+      data: { vaultId }
+    })
+  }
+
+  /**
+   * Initializes the encryption for the active vault.
+   * @returns {Promise<Object>}
+   */
+  async encryptionInit() {
+    return this._handleRequest({
+      command: API.ENCRYPTION_INIT
+    })
+  }
+
+  /**
+   * Gets the status of the encryption for the active vault.
+   * @returns {Promise<Object>}
+   */
+  async encryptionGetStatus() {
+    return this._handleRequest({
+      command: API.ENCRYPTION_GET_STATUS
+    })
+  }
+
+  /**
+   * Gets the encryption key for the active vault.
+   * @param {string} key - The key of the vault.
+   * @returns {Promise<Object>}
+   */
+  async encryptionGet(key) {
+    return this._handleRequest({
+      command: API.ENCRYPTION_GET,
+      data: { key }
+    })
+  }
+
+  /**
+   * Adds a record to the active vault.
+   * @param {string} key - The key of the record to add.
+   * @param {Object} data - The data of the record to add.
+   * @returns {Promise<Object>}
+   */
+  async encryptionAdd(key, data) {
+    return this._handleRequest({
+      command: API.ENCRYPTION_ADD,
+      data: { key, data }
+    })
+  }
+
+  /**
+   * Hashes a password for the active vault.
+   * @param {string} password - The password to hash.
+   * @returns {Promise<Object>}
+   */
+  async hashPassword(password) {
+    return this._handleRequest({
+      command: API.ENCRYPTION_HASH_PASSWORD,
+      data: { password }
+    })
+  }
+
+  /**
+   * Encrypts the vault key with a hashed password.
+   * @param {string} hashedPassword - The hashed password to use for encryption.
+   * @returns {Promise<Object>}
+   */
+  async encryptVaultKeyWithHashedPassword(hashedPassword) {
+    return this._handleRequest({
+      command: API.ENCRYPTION_ENCRYPT_VAULT_KEY_WITH_HASHED_PASSWORD,
+      data: { hashedPassword }
+    })
+  }
+
+  /**
+   * Encrypts the vault with a key.
+   * @param {string} hashedPassword - The hashed password to use for encryption.
+   * @param {string} key - The key of the vault to encrypt.
+   * @returns {Promise<Object>}
+   */
+  async encryptVaultWithKey(hashedPassword, key) {
+    return this._handleRequest({
+      command: API.ENCRYPTION_ENCRYPT_VAULT_WITH_KEY,
+      data: { hashedPassword, key }
+    })
+  }
+
+  /**
+   * Gets the decryption key for the active vault.
+   * @param {Object} params - The parameters for getting the decryption key.
+   * @param {string} params.salt - The salt to use for key derivation.
+   * @param {string} params.password - The password to use for key derivation.
+   * @returns {Promise<Object>}
+   */
+  async getDecryptionKey({ salt, password }) {
+    return this._handleRequest({
+      command: API.ENCRYPTION_GET_DECRYPTION_KEY,
+      data: { salt, password }
+    })
+  }
+
+  /**
+   * Decrypts the vault key for the active vault.
+   * @param {Object} params - The parameters for decrypting the vault key.
+   * @param {string} params.ciphertext - The ciphertext to decrypt.
+   * @param {string} params.nonce - The nonce to use for decryption.
+   * @param {string} params.hashedPassword - The hashed password to use for decryption.
+   * @returns {Promise<Object>}
+   */
+  async decryptVaultKey({ ciphertext, nonce, hashedPassword }) {
+    return this._handleRequest({
+      command: API.ENCRYPTION_DECRYPT_VAULT_KEY,
+      data: { ciphertext, nonce, hashedPassword }
+    })
+  }
+
+  /**
+   * Closes the encryption for the active vault.
+   * @returns {Promise<Object>}
+   */
+  async encryptionClose() {
+    return this._handleRequest({
+      command: API.ENCRYPTION_CLOSE
+    })
+  }
+
+  /**
+   * Closes the vault for the active vault.
+   * @returns {Promise<Object>}
+   */
+  async close() {
+    return this._handleRequest({
+      command: API.CLOSE
+    })
+  }
+
+  /**
+   * Adds a file to the active vault.
+   * @param {string} key - The key of the file to add.
+   * @param {Buffer} buffer - The file data to add.
+   * @returns {Promise<Object>}
+   */
   async activeVaultAddFile(key, buffer) {
     try {
       this._logger.log('Adding file to active vault:', { key })
 
-      const req = this.rpc.request(ACTIVE_VAULT_FILE_ADD)
+      const req = this.rpc.request(API.ACTIVE_VAULT_FILE_ADD)
 
       const stream = req.createRequestStream()
 
@@ -222,9 +488,14 @@ export class PearpassVaultClient extends EventEmitter {
     }
   }
 
+  /**
+   * Gets a file from the active vault.
+   * @param {string} key - The key of the file to get.
+   * @returns {Promise<Buffer>}
+   */
   async activeVaultGetFile(key) {
     try {
-      const req = this.rpc.request(ACTIVE_VAULT_FILE_GET)
+      const req = this.rpc.request(API.ACTIVE_VAULT_FILE_GET)
 
       this._logger.log('Getting file from active vault:', {
         key
@@ -241,503 +512,6 @@ export class PearpassVaultClient extends EventEmitter {
       return buffer
     } catch (error) {
       this._logger.error('Error getting file from active vault:', error)
-    }
-  }
-
-  async activeVaultRemoveFile(key) {
-    try {
-      const req = this.rpc.request(ACTIVE_VAULT_FILE_REMOVE)
-
-      this._logger.log('Removing file from active vault:', {
-        key
-      })
-
-      req.send(JSON.stringify({ key }))
-
-      await req.reply('utf8')
-      this._logger.log('File removed from active vault:', { key })
-    } catch (error) {
-      this._logger.error('Error removing file from active vault:', error)
-    }
-  }
-
-  async vaultsList(filterKey) {
-    try {
-      const req = this.rpc.request(VAULTS_LIST)
-
-      this._logger.log('Listing vaults:', filterKey)
-
-      req.send(JSON.stringify({ filterKey }))
-
-      const res = await req.reply('utf8')
-
-      const parsedRes = JSON.parse(res)
-
-      this._logger.log('Vaults listed:', parsedRes)
-
-      return parsedRes.data
-    } catch (error) {
-      this._logger.error('Error listing vaults:', error)
-    }
-  }
-
-  async activeVaultInit({ id, encryptionKey }) {
-    try {
-      const req = this.rpc.request(ACTIVE_VAULT_INIT)
-
-      this._logger.log('Initializing active vault:', id)
-
-      req.send(JSON.stringify({ id, encryptionKey }))
-
-      const res = await req.reply('utf8')
-
-      const parsedRes = JSON.parse(res)
-      this._logger.log('Active vault initialized:', parsedRes)
-
-      return parsedRes
-    } catch (error) {
-      this._logger.error('Error initializing active vault:', error)
-    }
-  }
-
-  async activeVaultGetStatus() {
-    try {
-      const req = this.rpc.request(ACTIVE_VAULT_GET_STATUS)
-
-      this._logger.log('Getting active vault status...')
-
-      req.send()
-
-      const res = await req.reply('utf8')
-      const parsedRes = JSON.parse(res)
-
-      this._logger.log('Active vault status:', parsedRes)
-
-      return parsedRes
-    } catch (error) {
-      this._logger.error('Error getting active vault status:', error)
-    }
-  }
-
-  async activeVaultClose() {
-    try {
-      const req = this.rpc.request(ACTIVE_VAULT_CLOSE)
-
-      this._logger.log('Closing active vault...')
-
-      req.send()
-
-      await req.reply('utf8')
-
-      this._logger.log('Active vault closed')
-    } catch (error) {
-      this._logger.error('Error closing active vault:', error)
-    }
-  }
-
-  async activeVaultAdd(key, data) {
-    try {
-      const req = this.rpc.request(ACTIVE_VAULT_ADD)
-
-      this._logger.log('Adding active vault:', key, data)
-
-      req.send(JSON.stringify({ key, data }))
-
-      await req.reply('utf8')
-
-      this._logger.log('Active vault added:', key, data)
-    } catch (error) {
-      this._logger.error('Error adding active vault:', error)
-    }
-  }
-
-  async activeVaultRemove(key) {
-    try {
-      const req = this.rpc.request(ACTIVE_VAULT_REMOVE)
-
-      this._logger.log('Removing active vault:', key)
-
-      req.send(JSON.stringify({ key }))
-
-      await req.reply('utf8')
-
-      this._logger.log('Active vault removed:', key)
-    } catch (error) {
-      this._logger.error('Error removing active vault:', error)
-    }
-  }
-
-  async activeVaultList(filterKey) {
-    try {
-      const req = this.rpc.request(ACTIVE_VAULT_LIST)
-
-      this._logger.log('Listing active vault...')
-
-      req.send(JSON.stringify({ filterKey }))
-
-      const res = await req.reply('utf8')
-
-      const parsedRes = JSON.parse(res)
-
-      this._logger.log('Active vault listed:', parsedRes)
-
-      return parsedRes.data
-    } catch (error) {
-      this._logger.error('Error listing active vault:', error)
-    }
-  }
-
-  async activeVaultGet(key) {
-    try {
-      const req = this.rpc.request(ACTIVE_VAULT_GET)
-
-      this._logger.log('Getting active vault:', key)
-
-      req.send(JSON.stringify({ key }))
-
-      const res = await req.reply('utf8')
-      const parsedRes = JSON.parse(res)
-
-      this._logger.log('Active vault:', parsedRes)
-
-      return parsedRes.data
-    } catch (error) {
-      this._logger.error('Error getting active vault:', error)
-    }
-  }
-
-  async activeVaultCreateInvite() {
-    try {
-      const req = this.rpc.request(ACTIVE_VAULT_CREATE_INVITE)
-
-      this._logger.log('Creating invite...')
-
-      req.send()
-
-      const res = await req.reply('utf8')
-      const parsedRes = JSON.parse(res)
-
-      this._logger.log('Invite created:', parsedRes)
-
-      return parsedRes.data
-    } catch (error) {
-      this._logger.error('Error creating invite:', error)
-    }
-  }
-
-  async activeVaultDeleteInvite() {
-    try {
-      const req = this.rpc.request(ACTIVE_VAULT_DELETE_INVITE)
-
-      this._logger.log('Deleting invite...')
-
-      req.send()
-
-      const res = await req.reply('utf8')
-      const parsedRes = JSON.parse(res)
-
-      this._logger.log('Invite deleted:', parsedRes)
-
-      return parsedRes.success
-    } catch (error) {
-      this._logger.error('Error deleting invite:', error)
-    }
-  }
-
-  async pairActiveVault(inviteCode) {
-    try {
-      const req = this.rpc.request(PAIR_ACTIVE_VAULT)
-
-      this._logger.log('Pairing with invite code:', inviteCode)
-
-      req.send(JSON.stringify({ inviteCode }))
-
-      const res = await req.reply('utf8')
-      const parsedRes = JSON.parse(res)
-
-      this._logger.log('Paired:', parsedRes)
-
-      return parsedRes.data
-    } catch (error) {
-      this._logger.error('Error pairing:', error)
-    }
-  }
-
-  async cancelPairActiveVault() {
-    try {
-      const req = this.rpc.request(CANCEL_PAIR_ACTIVE_VAULT)
-
-      this._logger.log('Canceling pairing with active vault...')
-
-      req.send()
-
-      const res = await req.reply('utf8')
-
-      this._logger.log('Pairing with active vault canceled successfully:', res)
-
-      const parsedRes = JSON.parse(res)
-
-      return parsedRes.success
-    } catch (error) {
-      this._logger.error('Error canceling pairing with active vault:', error)
-    }
-  }
-
-  async initListener({ vaultId }) {
-    try {
-      const req = this.rpc.request(INIT_LISTENER)
-
-      this._logger.log('Initializing listener:', vaultId)
-
-      req.send(JSON.stringify({ vaultId }))
-
-      const res = await req.reply('utf8')
-      const parsedRes = JSON.parse(res)
-
-      this._logger.log('Listener initialized:', parsedRes)
-
-      return parsedRes.success
-    } catch (error) {
-      this._logger.error('Error pairing:', error)
-    }
-  }
-
-  async encryptionInit() {
-    try {
-      const req = this.rpc.request(ENCRYPTION_INIT)
-
-      this._logger.log('Initializing encryption...')
-
-      req.send()
-
-      const res = await req.reply('utf8')
-      const parsedRes = JSON.parse(res)
-
-      this._logger.log('Encryption initialized:', parsedRes)
-
-      return parsedRes.success
-    } catch (error) {
-      this._logger.error('Error initializing encryption:', error)
-    }
-  }
-
-  async encryptionGetStatus() {
-    try {
-      const req = this.rpc.request(ENCRYPTION_GET_STATUS)
-
-      this._logger.log('Getting encryption status...')
-
-      req.send()
-
-      const res = await req.reply('utf8')
-      const parsedRes = JSON.parse(res)
-
-      this._logger.log('Encryption status:', parsedRes)
-
-      return parsedRes
-    } catch (error) {
-      this._logger.error('Error getting encryption status:', error)
-    }
-  }
-
-  async encryptionGet(key) {
-    try {
-      const req = this.rpc.request(ENCRYPTION_GET)
-
-      this._logger.log('Getting encryption:', key)
-
-      req.send(JSON.stringify({ key }))
-
-      const res = await req.reply('utf8')
-      const parsedRes = JSON.parse(res)
-
-      this._logger.log('Encryption:', parsedRes)
-
-      return parsedRes.data
-    } catch (error) {
-      this._logger.error('Error getting encryption:', error)
-    }
-  }
-
-  async encryptionAdd(key, data) {
-    try {
-      const req = this.rpc.request(ENCRYPTION_ADD)
-
-      this._logger.log('Adding encryption:', key, data)
-
-      req.send(JSON.stringify({ key, data }))
-
-      await req.reply('utf8')
-
-      this._logger.log('Encryption added:', key, data)
-    } catch (error) {
-      this._logger.error('Error adding encryption:', error)
-    }
-  }
-
-  async hashPassword(password) {
-    try {
-      const req = this.rpc.request(ENCRYPTION_HASH_PASSWORD)
-
-      this._logger.log(ENCRYPTION_HASH_PASSWORD, password)
-
-      req.send(JSON.stringify({ password }))
-
-      const res = await req.reply('utf8')
-
-      const parsedRes = JSON.parse(res)
-
-      this._logger.log(ENCRYPTION_HASH_PASSWORD, 'done', parsedRes)
-
-      return parsedRes.data
-    } catch (error) {
-      this._logger.error(ENCRYPTION_HASH_PASSWORD, 'Error', error)
-    }
-  }
-
-  async encryptVaultKeyWithHashedPassword(hashedPassword) {
-    try {
-      const req = this.rpc.request(
-        ENCRYPTION_ENCRYPT_VAULT_KEY_WITH_HASHED_PASSWORD
-      )
-
-      this._logger.log(
-        ENCRYPTION_ENCRYPT_VAULT_KEY_WITH_HASHED_PASSWORD,
-        hashedPassword
-      )
-
-      req.send(JSON.stringify({ hashedPassword }))
-
-      const res = await req.reply('utf8')
-
-      const parsedRes = JSON.parse(res)
-
-      this._logger.log(
-        ENCRYPTION_ENCRYPT_VAULT_KEY_WITH_HASHED_PASSWORD,
-        'done',
-        parsedRes
-      )
-
-      return parsedRes.data
-    } catch (error) {
-      this._logger.error(
-        ENCRYPTION_ENCRYPT_VAULT_KEY_WITH_HASHED_PASSWORD,
-        'error',
-        error
-      )
-    }
-  }
-
-  async encryptVaultWithKey(hashedPassword, key) {
-    try {
-      const req = this.rpc.request(ENCRYPTION_ENCRYPT_VAULT_WITH_KEY)
-
-      this._logger.log(ENCRYPTION_ENCRYPT_VAULT_WITH_KEY, {
-        hashedPassword,
-        key
-      })
-
-      req.send(JSON.stringify({ hashedPassword, key }))
-
-      const res = await req.reply('utf8')
-
-      const parsedRes = JSON.parse(res)
-
-      this._logger.log(ENCRYPTION_ENCRYPT_VAULT_WITH_KEY, 'done', parsedRes)
-
-      return parsedRes.data
-    } catch (error) {
-      this._logger.error(ENCRYPTION_ENCRYPT_VAULT_WITH_KEY, 'Error', error)
-    }
-  }
-
-  async getDecryptionKey({ salt, password }) {
-    try {
-      const req = this.rpc.request(ENCRYPTION_GET_DECRYPTION_KEY)
-
-      this._logger.log('Getting decryption key', {
-        salt,
-        password
-      })
-
-      req.send(
-        JSON.stringify({
-          salt,
-          password
-        })
-      )
-
-      const res = await req.reply('utf8')
-
-      const parsedRes = JSON.parse(res)
-
-      this._logger.log('Decryption key', parsedRes)
-
-      return parsedRes.data
-    } catch (error) {
-      this._logger.error('Error getting decryption:', error)
-    }
-  }
-
-  async decryptVaultKey({ ciphertext, nonce, hashedPassword }) {
-    try {
-      const req = this.rpc.request(ENCRYPTION_DECRYPT_VAULT_KEY)
-
-      this._logger.log('Decrypting vault key', {
-        ciphertext,
-        nonce,
-        hashedPassword
-      })
-
-      req.send(
-        JSON.stringify({
-          ciphertext,
-          nonce,
-          hashedPassword
-        })
-      )
-
-      const res = await req.reply('utf8')
-
-      const parsedRes = JSON.parse(res)
-
-      this._logger.log('Vault key decrypted', parsedRes)
-
-      return parsedRes.data
-    } catch (error) {
-      this._logger.error('Error adding encryption:', error)
-    }
-  }
-
-  async encryptionClose() {
-    try {
-      const req = this.rpc.request(ENCRYPTION_CLOSE)
-
-      this._logger.log('Closing encryption...')
-
-      req.send()
-
-      await req.reply('utf8')
-
-      this._logger.log('Encryption closed')
-    } catch (error) {
-      this._logger.error('Error closing encryption:', error)
-    }
-  }
-
-  async close() {
-    try {
-      const req = this.rpc.request(CLOSE)
-
-      this._logger.log('Closing instances...')
-
-      req.send()
-
-      await req.reply('utf8')
-
-      this._logger.log('Instances closed')
-    } catch (error) {
-      this._logger.error('Error closing instances:', error)
     }
   }
 }
