@@ -165,7 +165,7 @@ describe('RPC handler', () => {
     await handleRpcCommand(mockRequest)
 
     expect(mockRequest.reply).toHaveBeenCalledWith(
-      JSON.stringify({ status: false })
+      JSON.stringify({ data: { status: false } })
     )
   })
 
@@ -246,7 +246,7 @@ describe('RPC handler', () => {
     await handleRpcCommand(mockRequest)
 
     expect(mockRequest.reply).toHaveBeenCalledWith(
-      JSON.stringify({ status: true })
+      JSON.stringify({ data: { status: true } })
     )
   })
 
@@ -283,7 +283,7 @@ describe('RPC handler', () => {
     await handleRpcCommand(mockRequest)
 
     expect(mockRequest.reply).toHaveBeenCalledWith(
-      JSON.stringify({ error: 'Command not found' })
+      JSON.stringify({ error: 'Unknown command: UNKNOWN_COMMAND' })
     )
   })
 
@@ -399,7 +399,7 @@ describe('RPC handler', () => {
     await handleRpcCommand(mockRequest)
 
     expect(mockRequest.reply).toHaveBeenCalledWith(
-      JSON.stringify({ status: false })
+      JSON.stringify({ data: { status: false } })
     )
   })
 

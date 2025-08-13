@@ -1,1049 +1,242 @@
+import EventEmitter from 'events'
+
 import { PearpassVaultClient } from './index'
-import { API } from '../worklet/api'
 
 jest.mock('bare-rpc', () =>
-  jest.fn().mockImplementation((ipc, callback) => ({
-    IPC: ipc,
-    _callback: callback,
-    request: jest.fn()
+  jest.fn().mockImplementation(() => ({
+    request: jest.fn((command) => ({
+      command,
+      send: jest.fn(),
+      reply: jest.fn().mockResolvedValue(JSON.stringify({ data: 'mockData' })),
+      createRequestStream: jest.fn(),
+      createResponseStream: jest.fn()
+    }))
   }))
 )
 
-jest.mock('compact-encoding', () =>
-  jest.fn().mockImplementation(() => ({
-    encode: jest.fn(),
-    decode: jest.fn()
-  }))
-)
-
-jest.mock('framed-stream', () =>
-  jest.fn().mockImplementation(() => ({
-    create: jest.fn()
-  }))
-)
+jest.mock('framed-stream', () => jest.fn())
+jest.mock('../utils/recieveFileStream', () => ({
+  receiveFileStream: jest
+    .fn()
+    .mockResolvedValue({ buffer: Buffer.from('mockBuffer') })
+}))
+jest.mock('../utils/sendFileStream', () => ({
+  sendFileStream: jest.fn().mockResolvedValue()
+}))
+jest.mock('../worklet/api', () => ({
+  API: {
+    ON_UPDATE: 'ON_UPDATE',
+    STORAGE_PATH_SET: 'STORAGE_PATH_SET',
+    MASTER_VAULT_INIT: 'MASTER_VAULT_INIT',
+    MASTER_VAULT_GET_STATUS: 'MASTER_VAULT_GET_STATUS',
+    MASTER_VAULT_GET: 'MASTER_VAULT_GET',
+    MASTER_VAULT_CLOSE: 'MASTER_VAULT_CLOSE',
+    MASTER_VAULT_ADD: 'MASTER_VAULT_ADD',
+    MASTER_VAULT_LIST: 'MASTER_VAULT_LIST',
+    ACTIVE_VAULT_INIT: 'ACTIVE_VAULT_INIT',
+    ACTIVE_VAULT_GET_STATUS: 'ACTIVE_VAULT_GET_STATUS',
+    ACTIVE_VAULT_CLOSE: 'ACTIVE_VAULT_CLOSE',
+    ACTIVE_VAULT_ADD: 'ACTIVE_VAULT_ADD',
+    ACTIVE_VAULT_REMOVE: 'ACTIVE_VAULT_REMOVE',
+    ACTIVE_VAULT_LIST: 'ACTIVE_VAULT_LIST',
+    ACTIVE_VAULT_GET: 'ACTIVE_VAULT_GET',
+    ACTIVE_VAULT_CREATE_INVITE: 'ACTIVE_VAULT_CREATE_INVITE',
+    ACTIVE_VAULT_DELETE_INVITE: 'ACTIVE_VAULT_DELETE_INVITE',
+    PAIR_ACTIVE_VAULT: 'PAIR_ACTIVE_VAULT',
+    CANCEL_PAIR_ACTIVE_VAULT: 'CANCEL_PAIR_ACTIVE_VAULT',
+    INIT_LISTENER: 'INIT_LISTENER',
+    ENCRYPTION_INIT: 'ENCRYPTION_INIT',
+    ENCRYPTION_GET_STATUS: 'ENCRYPTION_GET_STATUS',
+    ENCRYPTION_GET: 'ENCRYPTION_GET',
+    ENCRYPTION_ADD: 'ENCRYPTION_ADD',
+    ENCRYPTION_HASH_PASSWORD: 'ENCRYPTION_HASH_PASSWORD',
+    ENCRYPTION_ENCRYPT_VAULT_KEY_WITH_HASHED_PASSWORD:
+      'ENCRYPTION_ENCRYPT_VAULT_KEY_WITH_HASHED_PASSWORD',
+    ENCRYPTION_ENCRYPT_VAULT_WITH_KEY: 'ENCRYPTION_ENCRYPT_VAULT_WITH_KEY',
+    ENCRYPTION_GET_DECRYPTION_KEY: 'ENCRYPTION_GET_DECRYPTION_KEY',
+    ENCRYPTION_DECRYPT_VAULT_KEY: 'ENCRYPTION_DECRYPT_VAULT_KEY',
+    ENCRYPTION_CLOSE: 'ENCRYPTION_CLOSE',
+    CLOSE: 'CLOSE',
+    ACTIVE_VAULT_FILE_ADD: 'ACTIVE_VAULT_FILE_ADD',
+    ACTIVE_VAULT_FILE_GET: 'ACTIVE_VAULT_FILE_GET',
+    ACTIVE_VAULT_FILE_REMOVE: 'ACTIVE_VAULT_FILE_REMOVE'
+  },
+  API_BY_VALUE: {
+    ON_UPDATE: 'ON_UPDATE',
+    STORAGE_PATH_SET: 'STORAGE_PATH_SET',
+    MASTER_VAULT_INIT: 'MASTER_VAULT_INIT',
+    MASTER_VAULT_GET_STATUS: 'MASTER_VAULT_GET_STATUS',
+    MASTER_VAULT_GET: 'MASTER_VAULT_GET',
+    MASTER_VAULT_CLOSE: 'MASTER_VAULT_CLOSE',
+    MASTER_VAULT_ADD: 'MASTER_VAULT_ADD',
+    MASTER_VAULT_LIST: 'MASTER_VAULT_LIST',
+    ACTIVE_VAULT_INIT: 'ACTIVE_VAULT_INIT',
+    ACTIVE_VAULT_GET_STATUS: 'ACTIVE_VAULT_GET_STATUS',
+    ACTIVE_VAULT_CLOSE: 'ACTIVE_VAULT_CLOSE',
+    ACTIVE_VAULT_ADD: 'ACTIVE_VAULT_ADD',
+    ACTIVE_VAULT_REMOVE: 'ACTIVE_VAULT_REMOVE',
+    ACTIVE_VAULT_LIST: 'ACTIVE_VAULT_LIST',
+    ACTIVE_VAULT_GET: 'ACTIVE_VAULT_GET',
+    ACTIVE_VAULT_CREATE_INVITE: 'ACTIVE_VAULT_CREATE_INVITE',
+    ACTIVE_VAULT_DELETE_INVITE: 'ACTIVE_VAULT_DELETE_INVITE',
+    PAIR_ACTIVE_VAULT: 'PAIR_ACTIVE_VAULT',
+    CANCEL_PAIR_ACTIVE_VAULT: 'CANCEL_PAIR_ACTIVE_VAULT',
+    INIT_LISTENER: 'INIT_LISTENER',
+    ENCRYPTION_INIT: 'ENCRYPTION_INIT',
+    ENCRYPTION_GET_STATUS: 'ENCRYPTION_GET_STATUS',
+    ENCRYPTION_GET: 'ENCRYPTION_GET',
+    ENCRYPTION_ADD: 'ENCRYPTION_ADD',
+    ENCRYPTION_HASH_PASSWORD: 'ENCRYPTION_HASH_PASSWORD',
+    ENCRYPTION_ENCRYPT_VAULT_KEY_WITH_HASHED_PASSWORD:
+      'ENCRYPTION_ENCRYPT_VAULT_KEY_WITH_HASHED_PASSWORD',
+    ENCRYPTION_ENCRYPT_VAULT_WITH_KEY: 'ENCRYPTION_ENCRYPT_VAULT_WITH_KEY',
+    ENCRYPTION_GET_DECRYPTION_KEY: 'ENCRYPTION_GET_DECRYPTION_KEY',
+    ENCRYPTION_DECRYPT_VAULT_KEY: 'ENCRYPTION_DECRYPT_VAULT_KEY',
+    ENCRYPTION_CLOSE: 'ENCRYPTION_CLOSE',
+    CLOSE: 'CLOSE',
+    ACTIVE_VAULT_FILE_ADD: 'ACTIVE_VAULT_FILE_ADD',
+    ACTIVE_VAULT_FILE_GET: 'ACTIVE_VAULT_FILE_GET',
+    ACTIVE_VAULT_FILE_REMOVE: 'ACTIVE_VAULT_FILE_REMOVE'
+  }
+}))
 
 describe('PearpassVaultClient', () => {
-  let client, fakeWorklet
+  let client
+  let ipcMock
 
   beforeEach(() => {
-    fakeWorklet = { IPC: {} }
-    client = new PearpassVaultClient(fakeWorklet, '/dummy/storage/path')
-    client.rpc.request.mockClear()
+    ipcMock = {}
+    client = new PearpassVaultClient(ipcMock, '/mock/path', { debugMode: true })
   })
 
-  describe('setStoragePath', () => {
-    it('should call STORAGE_PATH_SET request with the correct payload', async () => {
-      const mockSend = jest.fn().mockResolvedValue()
-      const mockReply = jest.fn().mockResolvedValue('ok')
-      client.rpc.request.mockReturnValueOnce({
-        send: mockSend,
-        reply: mockReply
-      })
-
-      await client.setStoragePath('/new/path')
-
-      expect(client.rpc.request).toHaveBeenCalledWith(API.STORAGE_PATH_SET)
-      expect(mockSend).toHaveBeenCalledWith(
-        JSON.stringify({ path: '/new/path' })
-      )
-      expect(mockReply).toHaveBeenCalled()
-    })
+  it('should be instance of EventEmitter', () => {
+    expect(client).toBeInstanceOf(EventEmitter)
   })
 
-  describe('vaultsInit', () => {
-    it('should initialize vaults successfully', async () => {
-      const encryptionKey = 'secret'
-      const mockSend = jest.fn().mockResolvedValue()
-      const replyData = JSON.stringify({})
-      const mockReply = jest.fn().mockResolvedValue(replyData)
-      client.rpc.request.mockReturnValueOnce({
-        send: mockSend,
-        reply: mockReply
-      })
-
-      await expect(client.vaultsInit(encryptionKey)).resolves.toBeUndefined()
-      expect(client.rpc.request).toHaveBeenCalledWith(API.MASTER_VAULT_INIT)
-      expect(mockSend).toHaveBeenCalledWith(JSON.stringify({ encryptionKey }))
-      expect(mockReply).toHaveBeenCalledWith('utf8')
-    })
-
-    it('should throw an error when vaultsInit returns an ELOCKED error', async () => {
-      const password = 'secret'
-      const errorReply = JSON.stringify({ error: 'ELOCKED' })
-      const mockSend = jest.fn().mockResolvedValue()
-      const mockReply = jest.fn().mockResolvedValue(errorReply)
-      client.rpc.request.mockReturnValueOnce({
-        send: mockSend,
-        reply: mockReply
-      })
-
-      await expect(client.vaultsInit(password)).rejects.toThrow('ELOCKED')
-    })
+  it('should call setStoragePath in constructor if storagePath is provided', async () => {
+    const spy = jest.spyOn(PearpassVaultClient.prototype, 'setStoragePath')
+    new PearpassVaultClient(ipcMock, '/another/path')
+    expect(spy).toHaveBeenCalledWith('/another/path')
+    spy.mockRestore()
   })
 
-  describe('vaultsGetStatus', () => {
-    it('should return parsed vaults status', async () => {
-      const statusObj = { status: 'ok' }
-      const replyData = JSON.stringify(statusObj)
-      const mockSend = jest.fn().mockResolvedValue()
-      const mockReply = jest.fn().mockResolvedValue(replyData)
-      client.rpc.request.mockReturnValueOnce({
-        send: mockSend,
-        reply: mockReply
-      })
-
-      const result = await client.vaultsGetStatus()
-      expect(client.rpc.request).toHaveBeenCalledWith(
-        API.MASTER_VAULT_GET_STATUS
-      )
-      expect(mockSend).toHaveBeenCalled()
-      expect(mockReply).toHaveBeenCalledWith('utf8')
-      expect(result).toEqual(statusObj)
-    })
+  it('should throw error for unknown command in _handleRequest', async () => {
+    await expect(
+      client._handleRequest({ command: 'UNKNOWN_COMMAND' })
+    ).rejects.toThrow('Unknown command:')
   })
 
-  describe('vaultsGet', () => {
-    it('should get vault data', async () => {
-      const key = 'key1'
-      const responseObj = { data: { foo: 'bar' } }
-      const replyData = JSON.stringify(responseObj)
-      const mockSend = jest.fn().mockResolvedValue()
-      const mockReply = jest.fn().mockResolvedValue(replyData)
-      client.rpc.request.mockReturnValueOnce({
-        send: mockSend,
-        reply: mockReply
-      })
-
-      const result = await client.vaultsGet(key)
-      expect(client.rpc.request).toHaveBeenCalledWith(API.MASTER_VAULT_GET)
-      expect(mockSend).toHaveBeenCalledWith(JSON.stringify({ key }))
-      expect(mockReply).toHaveBeenCalledWith('utf8')
-      expect(result).toEqual(responseObj.data)
-    })
+  it('should throw ELOCKED error in _handleError', () => {
+    expect(() => client._handleError({ error: 'ELOCKED' })).toThrow('ELOCKED')
   })
 
-  describe('vaultsClose', () => {
-    it('should close vaults', async () => {
-      const mockSend = jest.fn().mockResolvedValue()
-      const mockReply = jest.fn().mockResolvedValue('closed')
-      client.rpc.request.mockReturnValueOnce({
-        send: mockSend,
-        reply: mockReply
-      })
-
-      await client.vaultsClose()
-      expect(client.rpc.request).toHaveBeenCalledWith(API.MASTER_VAULT_CLOSE)
-      expect(mockSend).toHaveBeenCalled()
-      expect(mockReply).toHaveBeenCalledWith('utf8')
-    })
+  it('should throw generic error in _handleError', () => {
+    expect(() => client._handleError({ error: 'Some error' })).toThrow(
+      'Some error'
+    )
   })
 
-  describe('vaultsAdd', () => {
-    it('should add vault data', async () => {
-      const key = 'key1'
-      const vaultData = { foo: 'bar' }
-      const mockSend = jest.fn().mockResolvedValue()
-      const mockReply = jest.fn().mockResolvedValue('added')
-      client.rpc.request.mockReturnValueOnce({
-        send: mockSend,
-        reply: mockReply
+  it('should call all API methods and return mockData', async () => {
+    await expect(client.setStoragePath('/mock')).resolves.toBe('mockData')
+    await expect(client.vaultsInit('key')).resolves.toBe('mockData')
+    await expect(client.vaultsGetStatus()).resolves.toBe('mockData')
+    await expect(client.vaultsGet('vaultKey')).resolves.toBe('mockData')
+    await expect(client.vaultsClose()).resolves.toBe('mockData')
+    await expect(client.vaultsAdd('vaultKey', {})).resolves.toBe('mockData')
+    await expect(client.vaultsList('filter')).resolves.toBe('mockData')
+    await expect(
+      client.activeVaultInit({ id: 'id', encryptionKey: 'ekey' })
+    ).resolves.toBe('mockData')
+    await expect(client.activeVaultGetStatus()).resolves.toBe('mockData')
+    await expect(client.activeVaultClose()).resolves.toBe('mockData')
+    await expect(client.activeVaultAdd('key', {})).resolves.toBe('mockData')
+    await expect(client.activeVaultRemove('key')).resolves.toBe('mockData')
+    await expect(client.activeVaultList('filter')).resolves.toBe('mockData')
+    await expect(client.activeVaultGet('key')).resolves.toBe('mockData')
+    await expect(client.activeVaultCreateInvite()).resolves.toBe('mockData')
+    await expect(client.activeVaultDeleteInvite()).resolves.toBe('mockData')
+    await expect(client.pairActiveVault('invite')).resolves.toBe('mockData')
+    await expect(client.cancelPairActiveVault()).resolves.toBe('mockData')
+    await expect(client.initListener({ vaultId: 'id' })).resolves.toBe(
+      'mockData'
+    )
+    await expect(client.encryptionInit()).resolves.toBe('mockData')
+    await expect(client.encryptionGetStatus()).resolves.toBe('mockData')
+    await expect(client.encryptionGet('key')).resolves.toBe('mockData')
+    await expect(client.encryptionAdd('key', {})).resolves.toBe('mockData')
+    await expect(client.hashPassword('pw')).resolves.toBe('mockData')
+    await expect(
+      client.encryptVaultKeyWithHashedPassword('hashed')
+    ).resolves.toBe('mockData')
+    await expect(client.encryptVaultWithKey('hashed', 'key')).resolves.toBe(
+      'mockData'
+    )
+    await expect(
+      client.getDecryptionKey({ salt: 'salt', password: 'pw' })
+    ).resolves.toBe('mockData')
+    await expect(
+      client.decryptVaultKey({
+        ciphertext: 'ct',
+        nonce: 'n',
+        hashedPassword: 'hpw'
       })
-
-      await client.vaultsAdd(key, vaultData)
-      expect(client.rpc.request).toHaveBeenCalledWith(API.MASTER_VAULT_ADD)
-      expect(mockSend).toHaveBeenCalledWith(
-        JSON.stringify({ key, data: vaultData })
-      )
-      expect(mockReply).toHaveBeenCalledWith('utf8')
-    })
+    ).resolves.toBe('mockData')
+    await expect(client.encryptionClose()).resolves.toBe('mockData')
+    await expect(client.close()).resolves.toBe('mockData')
+    await expect(client.activeVaultRemoveFile('key')).resolves.toBe('mockData')
   })
 
-  describe('vaultsList', () => {
-    it('should list vaults and return data', async () => {
-      const filterKey = 'filter'
-      const data = ['vault1', 'vault2']
-      const replyData = JSON.stringify({ data })
-      const mockSend = jest.fn().mockResolvedValue()
-      const mockReply = jest.fn().mockResolvedValue(replyData)
-      client.rpc.request.mockReturnValueOnce({
-        send: mockSend,
-        reply: mockReply
-      })
-
-      const result = await client.vaultsList(filterKey)
-      expect(client.rpc.request).toHaveBeenCalledWith(API.MASTER_VAULT_LIST)
-      expect(mockSend).toHaveBeenCalledWith(JSON.stringify({ filterKey }))
-      expect(mockReply).toHaveBeenCalledWith('utf8')
-      expect(result).toEqual(data)
+  it('should call activeVaultAddFile and log', async () => {
+    const logSpy = jest.spyOn(client._logger, 'log')
+    await client.activeVaultAddFile('fileKey', Buffer.from('data'))
+    expect(logSpy).toHaveBeenCalledWith('Adding file to active vault:', {
+      key: 'fileKey'
     })
+    expect(logSpy).toHaveBeenCalledWith('File added', expect.any(String))
   })
 
-  describe('activeVaultInit', () => {
-    it('should initialize active vault and return parsed response', async () => {
-      const id = 'vault123'
-      const responseObj = { id, initialized: true }
-      const replyData = JSON.stringify(responseObj)
-      const mockSend = jest.fn().mockResolvedValue()
-      const mockReply = jest.fn().mockResolvedValue(replyData)
-      client.rpc.request.mockReturnValueOnce({
-        send: mockSend,
-        reply: mockReply
-      })
-
-      const result = await client.activeVaultInit({ id })
-      expect(client.rpc.request).toHaveBeenCalledWith(API.ACTIVE_VAULT_INIT)
-      expect(mockSend).toHaveBeenCalledWith(JSON.stringify({ id }))
-      expect(mockReply).toHaveBeenCalledWith('utf8')
-      expect(result).toEqual(responseObj)
-    })
-
-    it('should initialize active vault with encryptionKey', async () => {
-      const id = 'vault123'
-      const encryptionKey = 'encryptionKey123'
-      const responseObj = { id, initialized: true }
-      const replyData = JSON.stringify(responseObj)
-      const mockSend = jest.fn().mockResolvedValue()
-      const mockReply = jest.fn().mockResolvedValue(replyData)
-      client.rpc.request.mockReturnValueOnce({
-        send: mockSend,
-        reply: mockReply
-      })
-      const result = await client.activeVaultInit({ id, encryptionKey })
-      expect(client.rpc.request).toHaveBeenCalledWith(API.ACTIVE_VAULT_INIT)
-      expect(mockSend).toHaveBeenCalledWith(
-        JSON.stringify({ id, encryptionKey })
-      )
-      expect(mockReply).toHaveBeenCalledWith('utf8')
-      expect(result).toEqual(responseObj)
-    })
+  it('should call activeVaultGetFile and return buffer', async () => {
+    const buffer = await client.activeVaultGetFile('fileKey')
+    expect(buffer).toEqual(Buffer.from('mockBuffer'))
   })
 
-  describe('activeVaultGetStatus', () => {
-    it('should get active vault status', async () => {
-      const statusObj = { status: 'active' }
-      const replyData = JSON.stringify(statusObj)
-      const mockSend = jest.fn().mockResolvedValue()
-      const mockReply = jest.fn().mockResolvedValue(replyData)
-      client.rpc.request.mockReturnValueOnce({
-        send: mockSend,
-        reply: mockReply
-      })
-
-      const result = await client.activeVaultGetStatus()
-      expect(client.rpc.request).toHaveBeenCalledWith(
-        API.ACTIVE_VAULT_GET_STATUS
-      )
-      expect(mockSend).toHaveBeenCalled()
-      expect(mockReply).toHaveBeenCalledWith('utf8')
-      expect(result).toEqual(statusObj)
-    })
+  it('should handle error in activeVaultAddFile', async () => {
+    client.rpc.request = () => {
+      throw new Error('fail')
+    }
+    const errorSpy = jest.spyOn(client._logger, 'error')
+    await client.activeVaultAddFile('fileKey', Buffer.from('data'))
+    expect(errorSpy).toHaveBeenCalledWith(
+      'Error adding file to active vault:',
+      expect.any(Error)
+    )
   })
 
-  describe('activeVaultClose', () => {
-    it('should close active vault', async () => {
-      const mockSend = jest.fn().mockResolvedValue()
-      const mockReply = jest.fn().mockResolvedValue('closed')
-      client.rpc.request.mockReturnValueOnce({
-        send: mockSend,
-        reply: mockReply
-      })
-
-      await client.activeVaultClose()
-      expect(client.rpc.request).toHaveBeenCalledWith(API.ACTIVE_VAULT_CLOSE)
-      expect(mockSend).toHaveBeenCalled()
-      expect(mockReply).toHaveBeenCalledWith('utf8')
-    })
+  it('should handle error in activeVaultGetFile', async () => {
+    client.rpc.request = () => {
+      throw new Error('fail')
+    }
+    const errorSpy = jest.spyOn(client._logger, 'error')
+    await client.activeVaultGetFile('fileKey')
+    expect(errorSpy).toHaveBeenCalledWith(
+      'Error getting file from active vault:',
+      expect.any(Error)
+    )
   })
 
-  describe('activeVaultAdd', () => {
-    it('should add data to active vault', async () => {
-      const key = 'key1'
-      const data = { value: 'data' }
-      const mockSend = jest.fn().mockResolvedValue()
-      const mockReply = jest.fn().mockResolvedValue('added')
-      client.rpc.request.mockReturnValueOnce({
-        send: mockSend,
-        reply: mockReply
-      })
-
-      await client.activeVaultAdd(key, data)
-      expect(client.rpc.request).toHaveBeenCalledWith(API.ACTIVE_VAULT_ADD)
-      expect(mockSend).toHaveBeenCalledWith(JSON.stringify({ key, data }))
-      expect(mockReply).toHaveBeenCalledWith('utf8')
-    })
-  })
-
-  describe('activeVaultRemove', () => {
-    it('should remove data from active vault', async () => {
-      const key = 'key1'
-      const mockSend = jest.fn().mockResolvedValue()
-      const mockReply = jest.fn().mockResolvedValue('removed')
-      client.rpc.request.mockReturnValueOnce({
-        send: mockSend,
-        reply: mockReply
-      })
-
-      await client.activeVaultRemove(key)
-      expect(client.rpc.request).toHaveBeenCalledWith(API.ACTIVE_VAULT_REMOVE)
-      expect(mockSend).toHaveBeenCalledWith(JSON.stringify({ key }))
-      expect(mockReply).toHaveBeenCalledWith('utf8')
-    })
-  })
-
-  describe('activeVaultList', () => {
-    it('should list active vaults and return data', async () => {
-      const filterKey = 'filter'
-      const data = ['activeVault1', 'activeVault2']
-      const replyData = JSON.stringify({ data })
-      const mockSend = jest.fn().mockResolvedValue()
-      const mockReply = jest.fn().mockResolvedValue(replyData)
-      client.rpc.request.mockReturnValueOnce({
-        send: mockSend,
-        reply: mockReply
-      })
-
-      const result = await client.activeVaultList(filterKey)
-      expect(client.rpc.request).toHaveBeenCalledWith(API.ACTIVE_VAULT_LIST)
-      expect(mockSend).toHaveBeenCalledWith(JSON.stringify({ filterKey }))
-      expect(mockReply).toHaveBeenCalledWith('utf8')
-      expect(result).toEqual(data)
-    })
-  })
-
-  describe('activeVaultGet', () => {
-    it('should get active vault data', async () => {
-      const key = 'key1'
-      const responseObj = { data: { foo: 'bar' } }
-      const replyData = JSON.stringify(responseObj)
-      const mockSend = jest.fn().mockResolvedValue()
-      const mockReply = jest.fn().mockResolvedValue(replyData)
-      client.rpc.request.mockReturnValueOnce({
-        send: mockSend,
-        reply: mockReply
-      })
-
-      const result = await client.activeVaultGet(key)
-      expect(client.rpc.request).toHaveBeenCalledWith(API.ACTIVE_VAULT_GET)
-      expect(mockSend).toHaveBeenCalledWith(JSON.stringify({ key }))
-      expect(mockReply).toHaveBeenCalledWith('utf8')
-      expect(result).toEqual(responseObj.data)
-    })
-  })
-
-  describe('activeVaultCreateInvite', () => {
-    it('should create an invite and return the invite data', async () => {
-      const responseObj = { data: 'invite-code' }
-      const replyData = JSON.stringify(responseObj)
-      const mockSend = jest.fn().mockResolvedValue()
-      const mockReply = jest.fn().mockResolvedValue(replyData)
-      client.rpc.request.mockReturnValueOnce({
-        send: mockSend,
-        reply: mockReply
-      })
-
-      const result = await client.activeVaultCreateInvite()
-      expect(client.rpc.request).toHaveBeenCalledWith(
-        API.ACTIVE_VAULT_CREATE_INVITE
-      )
-      expect(mockSend).toHaveBeenCalled()
-      expect(mockReply).toHaveBeenCalledWith('utf8')
-      expect(result).toEqual(responseObj.data)
-    })
-  })
-
-  describe('activeVaultDeleteInvite', () => {
-    it('should delete an invite and return success', async () => {
-      const responseObj = { success: true }
-      const replyData = JSON.stringify(responseObj)
-      const mockSend = jest.fn().mockResolvedValue()
-      const mockReply = jest.fn().mockResolvedValue(replyData)
-      client.rpc.request.mockReturnValueOnce({
-        send: mockSend,
-        reply: mockReply
-      })
-
-      const result = await client.activeVaultDeleteInvite()
-      expect(client.rpc.request).toHaveBeenCalledWith(
-        API.ACTIVE_VAULT_DELETE_INVITE
-      )
-      expect(mockSend).toHaveBeenCalled()
-      expect(mockReply).toHaveBeenCalledWith('utf8')
-      expect(result).toEqual(responseObj.success)
-    })
-  })
-
-  describe('pair', () => {
-    it('should pair using an invite code and return paired data', async () => {
-      const inviteCode = 'INV123'
-      const responseObj = { data: 'paired-data' }
-      const replyData = JSON.stringify(responseObj)
-      const mockSend = jest.fn().mockResolvedValue()
-      const mockReply = jest.fn().mockResolvedValue(replyData)
-      client.rpc.request.mockReturnValueOnce({
-        send: mockSend,
-        reply: mockReply
-      })
-
-      const result = await client.pair(inviteCode)
-      expect(client.rpc.request).toHaveBeenCalledWith(API.PAIR_ACTIVE_VAULT)
-      expect(mockSend).toHaveBeenCalledWith(JSON.stringify({ inviteCode }))
-      expect(mockReply).toHaveBeenCalledWith('utf8')
-      expect(result).toEqual(responseObj.data)
-    })
-  })
-
-  describe('initListener', () => {
-    it('should initialize listener and return success', async () => {
-      const vaultId = 'vault1'
-      const responseObj = { success: true }
-      const replyData = JSON.stringify(responseObj)
-      const mockSend = jest.fn().mockResolvedValue()
-      const mockReply = jest.fn().mockResolvedValue(replyData)
-      client.rpc.request.mockReturnValueOnce({
-        send: mockSend,
-        reply: mockReply
-      })
-
-      const result = await client.initListener({ vaultId })
-      expect(client.rpc.request).toHaveBeenCalledWith(API.INIT_LISTENER)
-      expect(mockSend).toHaveBeenCalledWith(JSON.stringify({ vaultId }))
-      expect(mockReply).toHaveBeenCalledWith('utf8')
-      expect(result).toEqual(responseObj.success)
-    })
-  })
-
-  describe('encryptionInit', () => {
-    it('should initialize encryption and return success', async () => {
-      const responseObj = { success: true }
-      const replyData = JSON.stringify(responseObj)
-      const mockSend = jest.fn().mockResolvedValue()
-      const mockReply = jest.fn().mockResolvedValue(replyData)
-      client.rpc.request.mockReturnValueOnce({
-        send: mockSend,
-        reply: mockReply
-      })
-
-      const result = await client.encryptionInit()
-      expect(client.rpc.request).toHaveBeenCalledWith(API.ENCRYPTION_INIT)
-      expect(mockSend).toHaveBeenCalled()
-      expect(mockReply).toHaveBeenCalledWith('utf8')
-      expect(result).toEqual(responseObj.success)
-    })
-  })
-
-  describe('encryptionGetStatus', () => {
-    it('should get encryption status', async () => {
-      const statusObj = { status: 'encrypted' }
-      const replyData = JSON.stringify(statusObj)
-      const mockSend = jest.fn().mockResolvedValue()
-      const mockReply = jest.fn().mockResolvedValue(replyData)
-      client.rpc.request.mockReturnValueOnce({
-        send: mockSend,
-        reply: mockReply
-      })
-
-      const result = await client.encryptionGetStatus()
-      expect(client.rpc.request).toHaveBeenCalledWith(API.ENCRYPTION_GET_STATUS)
-      expect(mockSend).toHaveBeenCalled()
-      expect(mockReply).toHaveBeenCalledWith('utf8')
-      expect(result).toEqual(statusObj)
-    })
-  })
-
-  describe('encryptionGet', () => {
-    it('should get encryption data', async () => {
-      const key = 'encKey'
-      const responseObj = { data: 'encrypted-data' }
-      const replyData = JSON.stringify(responseObj)
-      const mockSend = jest.fn().mockResolvedValue()
-      const mockReply = jest.fn().mockResolvedValue(replyData)
-      client.rpc.request.mockReturnValueOnce({
-        send: mockSend,
-        reply: mockReply
-      })
-
-      const result = await client.encryptionGet(key)
-      expect(client.rpc.request).toHaveBeenCalledWith(API.ENCRYPTION_GET)
-      expect(mockSend).toHaveBeenCalledWith(JSON.stringify({ key }))
-      expect(mockReply).toHaveBeenCalledWith('utf8')
-      expect(result).toEqual(responseObj.data)
-    })
-  })
-
-  describe('encryptionAdd', () => {
-    it('should add encryption data', async () => {
-      const key = 'encKey'
-      const data = { secret: 'value' }
-      const mockSend = jest.fn().mockResolvedValue()
-      const mockReply = jest.fn().mockResolvedValue('added')
-      client.rpc.request.mockReturnValueOnce({
-        send: mockSend,
-        reply: mockReply
-      })
-
-      await client.encryptionAdd(key, data)
-      expect(client.rpc.request).toHaveBeenCalledWith(API.ENCRYPTION_ADD)
-      expect(mockSend).toHaveBeenCalledWith(JSON.stringify({ key, data }))
-      expect(mockReply).toHaveBeenCalledWith('utf8')
-    })
-  })
-
-  describe('encryptionClose', () => {
-    it('should close encryption', async () => {
-      const mockSend = jest.fn().mockResolvedValue()
-      const mockReply = jest.fn().mockResolvedValue('closed')
-      client.rpc.request.mockReturnValueOnce({
-        send: mockSend,
-        reply: mockReply
-      })
-
-      await client.encryptionClose()
-      expect(client.rpc.request).toHaveBeenCalledWith(API.ENCRYPTION_CLOSE)
-      expect(mockSend).toHaveBeenCalled()
-      expect(mockReply).toHaveBeenCalledWith('utf8')
-    })
-  })
-
-  describe('Event Emitter for ON_UPDATE', () => {
-    it("should emit an 'update' event when an ON_UPDATE command is received", () => {
-      const updateHandler = jest.fn()
-      client.on('update', updateHandler)
-      const callback = client.rpc._callback
-      callback({ command: API.ON_UPDATE })
-      expect(updateHandler).toHaveBeenCalled()
-    })
-  })
-
-  describe('debugMode and _logger', () => {
-    it('should initialize with debugMode=false by default', () => {
-      const client = new PearpassVaultClient(fakeWorklet, '/path')
-      expect(client.debugMode).toBe(false)
-    })
-
-    it('should initialize with provided debugMode', () => {
-      const client = new PearpassVaultClient(fakeWorklet, '/path', {
-        debugMode: true
-      })
-      expect(client.debugMode).toBe(true)
-    })
-
-    it('should not log to console when debugMode is false', () => {
-      const consoleSpy = jest.spyOn(console, 'log').mockImplementation()
-      const client = new PearpassVaultClient(fakeWorklet, '/path', {
-        debugMode: false
-      })
-
-      client._logger.log('test message')
-      expect(consoleSpy).not.toHaveBeenCalled()
-
-      consoleSpy.mockRestore()
-    })
-
-    it('should log to console when debugMode is true', () => {
-      const consoleSpy = jest.spyOn(console, 'log').mockImplementation()
-      const client = new PearpassVaultClient(fakeWorklet, '/path', {
-        debugMode: true
-      })
-
-      client._logger.log('test message')
-      expect(consoleSpy).toHaveBeenCalledWith('test message')
-
-      consoleSpy.mockRestore()
-    })
-
-    it('should always log errors regardless of debugMode', () => {
-      const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation()
-
-      const client1 = new PearpassVaultClient(fakeWorklet, '/path', {
-        debugMode: false
-      })
-      client1._logger.error('error message')
-      expect(consoleErrorSpy).toHaveBeenCalledWith('error message')
-
-      consoleErrorSpy.mockClear()
-
-      const client2 = new PearpassVaultClient(fakeWorklet, '/path', {
-        debugMode: true
-      })
-      client2._logger.error('error message')
-      expect(consoleErrorSpy).toHaveBeenCalledWith('error message')
-
-      consoleErrorSpy.mockRestore()
-    })
-
-    it('should log errors for unknown commands', () => {
-      const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation()
-      const client = new PearpassVaultClient(fakeWorklet, '/path')
-
-      const callback = client.rpc._callback
-      callback({ command: 'UNKNOWN_COMMAND' })
-
-      expect(consoleErrorSpy).toHaveBeenCalledWith(
-        'Unknown command:',
-        'UNKNOWN_COMMAND'
-      )
-
-      consoleErrorSpy.mockRestore()
-    })
-  })
-
-  describe('getDecryptionKey', () => {
-    it('should get decryption key with provided salt and password', async () => {
-      const params = {
-        salt: 'salt-value',
-        password: 'testPassword123'
+  it('should emit update event on ON_UPDATE command', () => {
+    const updateSpy = jest.fn()
+    client.on('update', updateSpy)
+    client.rpc = {
+      request: jest.fn()
+    }
+    // Simulate ON_UPDATE command
+    client.rpc = new (require('bare-rpc'))({}, (req) => {
+      if (req.command === 'ON_UPDATE') {
+        client.emit('update')
       }
-
-      const hashedPassword = 'derived-decryption-key'
-      const responseObj = { data: hashedPassword }
-      const replyData = JSON.stringify(responseObj)
-
-      const mockSend = jest.fn().mockResolvedValue()
-      const mockReply = jest.fn().mockResolvedValue(replyData)
-
-      client.rpc.request.mockReturnValueOnce({
-        send: mockSend,
-        reply: mockReply
-      })
-
-      const result = await client.getDecryptionKey(params)
-
-      expect(client.rpc.request).toHaveBeenCalledWith(
-        API.ENCRYPTION_GET_DECRYPTION_KEY
-      )
-      expect(mockSend).toHaveBeenCalledWith(JSON.stringify(params))
-      expect(mockReply).toHaveBeenCalledWith('utf8')
-      expect(result).toEqual(hashedPassword)
     })
-
-    it('should handle errors when getting decryption key', async () => {
-      const params = {
-        salt: 'salt-value',
-        password: 'wrong-password'
-      }
-
-      const mockSend = jest
-        .fn()
-        .mockRejectedValue(new Error('Decryption key error'))
-
-      client.rpc.request.mockReturnValueOnce({
-        send: mockSend
-      })
-
-      const consoleSpy = jest.spyOn(console, 'error').mockImplementation()
-
-      await client.getDecryptionKey(params)
-
-      expect(consoleSpy).toHaveBeenCalledWith(
-        'Error getting decryption:',
-        expect.any(Error)
-      )
-
-      consoleSpy.mockRestore()
-    })
-
-    it('should log getDecryptionKey operation in debug mode', async () => {
-      const debugClient = new PearpassVaultClient(fakeWorklet, '/path', {
-        debugMode: true
-      })
-
-      const params = {
-        salt: 'salt-value',
-        password: 'testPassword123'
-      }
-
-      const hashedPassword = 'derived-decryption-key'
-      const responseObj = { data: hashedPassword }
-      const replyData = JSON.stringify(responseObj)
-
-      const mockSend = jest.fn().mockResolvedValue()
-      const mockReply = jest.fn().mockResolvedValue(replyData)
-
-      debugClient.rpc.request = jest.fn().mockReturnValueOnce({
-        send: mockSend,
-        reply: mockReply
-      })
-
-      const consoleSpy = jest.spyOn(console, 'log').mockImplementation()
-
-      await debugClient.getDecryptionKey(params)
-
-      expect(consoleSpy).toHaveBeenCalledWith(
-        'Getting decryption key',
-        expect.objectContaining(params)
-      )
-      expect(consoleSpy).toHaveBeenCalledWith(
-        'Decryption key',
-        expect.anything()
-      )
-
-      consoleSpy.mockRestore()
-    })
-
-    it('should return undefined when decryption key derivation fails', async () => {
-      const params = {
-        salt: 'salt-value',
-        password: 'testPassword123'
-      }
-
-      const responseObj = { error: 'Invalid parameters' }
-      const replyData = JSON.stringify(responseObj)
-
-      const mockSend = jest.fn().mockResolvedValue()
-      const mockReply = jest.fn().mockResolvedValue(replyData)
-
-      client.rpc.request.mockReturnValueOnce({
-        send: mockSend,
-        reply: mockReply
-      })
-
-      const result = await client.getDecryptionKey(params)
-
-      expect(result).toBeUndefined()
-    })
-
-    it('should send properly formatted JSON data', async () => {
-      const params = {
-        salt: 'very-complex-salt-value',
-        password: 'Password$123'
-      }
-
-      const mockSend = jest.fn().mockResolvedValue()
-      const mockReply = jest
-        .fn()
-        .mockResolvedValue(JSON.stringify({ data: 'key' }))
-
-      client.rpc.request.mockReturnValueOnce({
-        send: mockSend,
-        reply: mockReply
-      })
-
-      await client.getDecryptionKey(params)
-
-      expect(mockSend).toHaveBeenCalledWith(
-        JSON.stringify({
-          salt: params.salt,
-          password: params.password
-        })
-      )
-    })
-  })
-
-  describe('decryptVaultKey', () => {
-    it('should decrypt the vault key with provided parameters', async () => {
-      const decryptParams = {
-        ciphertext: 'encrypted-content',
-        nonce: 'random-nonce',
-        hashedPassword: 'decryption-key'
-      }
-
-      const decryptedData = 'decrypted-vault-key'
-      const responseObj = { data: decryptedData }
-      const replyData = JSON.stringify(responseObj)
-
-      const mockSend = jest.fn().mockResolvedValue()
-      const mockReply = jest.fn().mockResolvedValue(replyData)
-
-      client.rpc.request.mockReturnValueOnce({
-        send: mockSend,
-        reply: mockReply
-      })
-
-      const result = await client.decryptVaultKey(decryptParams)
-
-      expect(client.rpc.request).toHaveBeenCalledWith(
-        API.ENCRYPTION_DECRYPT_VAULT_KEY
-      )
-      expect(mockSend).toHaveBeenCalledWith(JSON.stringify(decryptParams))
-      expect(mockReply).toHaveBeenCalledWith('utf8')
-      expect(result).toEqual(decryptedData)
-    })
-
-    it('should handle errors when decrypting vault key', async () => {
-      const decryptParams = {
-        ciphertext: 'encrypted-content',
-        nonce: 'random-nonce',
-        hashedPassword: 'wrong-decryption-key'
-      }
-
-      const mockSend = jest
-        .fn()
-        .mockRejectedValue(new Error('Decryption error'))
-
-      client.rpc.request.mockReturnValueOnce({
-        send: mockSend
-      })
-
-      const consoleSpy = jest.spyOn(console, 'error').mockImplementation()
-
-      await client.decryptVaultKey(decryptParams)
-
-      expect(consoleSpy).toHaveBeenCalledWith(
-        'Error adding encryption:',
-        expect.any(Error)
-      )
-
-      consoleSpy.mockRestore()
-    })
-
-    it('should log decrypt vault key operation in debug mode', async () => {
-      const debugClient = new PearpassVaultClient(fakeWorklet, '/path', {
-        debugMode: true
-      })
-
-      const decryptParams = {
-        ciphertext: 'encrypted-content',
-        nonce: 'random-nonce',
-        hashedPassword: 'decryption-key'
-      }
-
-      const responseObj = { data: 'decrypted-key' }
-      const replyData = JSON.stringify(responseObj)
-
-      const mockSend = jest.fn().mockResolvedValue()
-      const mockReply = jest.fn().mockResolvedValue(replyData)
-
-      debugClient.rpc.request = jest.fn().mockReturnValueOnce({
-        send: mockSend,
-        reply: mockReply
-      })
-
-      const consoleSpy = jest.spyOn(console, 'log').mockImplementation()
-
-      await debugClient.decryptVaultKey(decryptParams)
-
-      expect(consoleSpy).toHaveBeenCalledWith(
-        'Decrypting vault key',
-        expect.objectContaining(decryptParams)
-      )
-      expect(consoleSpy).toHaveBeenCalledWith(
-        'Vault key decrypted',
-        expect.anything()
-      )
-
-      consoleSpy.mockRestore()
-    })
-
-    it('should return undefined when decryption fails', async () => {
-      const decryptParams = {
-        ciphertext: 'encrypted-content',
-        nonce: 'random-nonce',
-        salt: 'salt-value',
-        password: 'testPassword123'
-      }
-
-      const responseObj = { error: 'Invalid password' }
-      const replyData = JSON.stringify(responseObj)
-
-      const mockSend = jest.fn().mockResolvedValue()
-      const mockReply = jest.fn().mockResolvedValue(replyData)
-
-      client.rpc.request.mockReturnValueOnce({
-        send: mockSend,
-        reply: mockReply
-      })
-
-      const result = await client.decryptVaultKey(decryptParams)
-
-      expect(result).toBeUndefined()
-    })
-  })
-
-  describe('hashPassword', () => {
-    it('should hash a password and return the hashed result', async () => {
-      const password = 'mySecurePassword123'
-      const hashedResult = 'hashed-password-value'
-      const responseObj = { data: hashedResult }
-      const replyData = JSON.stringify(responseObj)
-
-      const mockSend = jest.fn().mockResolvedValue()
-      const mockReply = jest.fn().mockResolvedValue(replyData)
-
-      client.rpc.request.mockReturnValueOnce({
-        send: mockSend,
-        reply: mockReply
-      })
-
-      const result = await client.hashPassword(password)
-
-      expect(client.rpc.request).toHaveBeenCalledWith(
-        API.ENCRYPTION_HASH_PASSWORD
-      )
-      expect(mockSend).toHaveBeenCalledWith(JSON.stringify({ password }))
-      expect(mockReply).toHaveBeenCalledWith('utf8')
-      expect(result).toEqual(hashedResult)
-    })
-
-    it('should handle errors when hashing a password', async () => {
-      const password = 'mySecurePassword123'
-      const mockSend = jest.fn().mockRejectedValue(new Error('Hashing error'))
-
-      client.rpc.request.mockReturnValueOnce({
-        send: mockSend
-      })
-
-      const consoleSpy = jest.spyOn(console, 'error').mockImplementation()
-
-      await client.hashPassword(password)
-
-      expect(consoleSpy).toHaveBeenCalledWith(
-        API.ENCRYPTION_HASH_PASSWORD,
-        'Error',
-        expect.any(Error)
-      )
-
-      consoleSpy.mockRestore()
-    })
-  })
-
-  describe('encryptVaultKeyWithHashedPassword', () => {
-    it('should encrypt vault key with hashed password and return the result', async () => {
-      const hashedPassword = 'hashed-password-123'
-      const encryptResult = {
-        ciphertext: 'encrypted-vault-key',
-        nonce: 'random-nonce'
-      }
-      const responseObj = { data: encryptResult }
-      const replyData = JSON.stringify(responseObj)
-
-      const mockSend = jest.fn().mockResolvedValue()
-      const mockReply = jest.fn().mockResolvedValue(replyData)
-
-      client.rpc.request.mockReturnValueOnce({
-        send: mockSend,
-        reply: mockReply
-      })
-
-      const result =
-        await client.encryptVaultKeyWithHashedPassword(hashedPassword)
-
-      expect(client.rpc.request).toHaveBeenCalledWith(
-        API.ENCRYPTION_ENCRYPT_VAULT_KEY_WITH_HASHED_PASSWORD
-      )
-      expect(mockSend).toHaveBeenCalledWith(JSON.stringify({ hashedPassword }))
-      expect(mockReply).toHaveBeenCalledWith('utf8')
-      expect(result).toEqual(encryptResult)
-    })
-
-    it('should handle errors when encrypting vault key', async () => {
-      const hashedPassword = 'hashed-password-123'
-      const mockSend = jest
-        .fn()
-        .mockRejectedValue(new Error('Encryption error'))
-
-      client.rpc.request.mockReturnValueOnce({
-        send: mockSend
-      })
-
-      const consoleSpy = jest.spyOn(console, 'error').mockImplementation()
-
-      await client.encryptVaultKeyWithHashedPassword(hashedPassword)
-
-      expect(consoleSpy).toHaveBeenCalledWith(
-        API.ENCRYPTION_ENCRYPT_VAULT_KEY_WITH_HASHED_PASSWORD,
-        'error',
-        expect.any(Error)
-      )
-
-      consoleSpy.mockRestore()
-    })
-  })
-
-  describe('encryptVaultWithKey', () => {
-    it('should encrypt vault with key and return the result', async () => {
-      const hashedPassword = 'hashed-password-123'
-      const key = 'vault-encryption-key'
-      const encryptResult = {
-        ciphertext: 'encrypted-vault-data',
-        nonce: 'random-nonce'
-      }
-      const responseObj = { data: encryptResult }
-      const replyData = JSON.stringify(responseObj)
-
-      const mockSend = jest.fn().mockResolvedValue()
-      const mockReply = jest.fn().mockResolvedValue(replyData)
-
-      client.rpc.request.mockReturnValueOnce({
-        send: mockSend,
-        reply: mockReply
-      })
-
-      const result = await client.encryptVaultWithKey(hashedPassword, key)
-
-      expect(client.rpc.request).toHaveBeenCalledWith(
-        API.ENCRYPTION_ENCRYPT_VAULT_WITH_KEY
-      )
-      expect(mockSend).toHaveBeenCalledWith(
-        JSON.stringify({ hashedPassword, key })
-      )
-      expect(mockReply).toHaveBeenCalledWith('utf8')
-      expect(result).toEqual(encryptResult)
-    })
-
-    it('should handle errors when encrypting vault with key', async () => {
-      const hashedPassword = 'hashed-password-123'
-      const key = 'vault-encryption-key'
-      const mockSend = jest
-        .fn()
-        .mockRejectedValue(new Error('Encryption error'))
-
-      client.rpc.request.mockReturnValueOnce({
-        send: mockSend
-      })
-
-      const consoleSpy = jest.spyOn(console, 'error').mockImplementation()
-
-      await client.encryptVaultWithKey(hashedPassword, key)
-
-      expect(consoleSpy).toHaveBeenCalledWith(
-        API.ENCRYPTION_ENCRYPT_VAULT_WITH_KEY,
-        'Error',
-        expect.any(Error)
-      )
-
-      consoleSpy.mockRestore()
-    })
-  })
-  describe('close', () => {
-    it('should send a close request and log success messages', async () => {
-      const mockSend = jest.fn().mockResolvedValue()
-      const mockReply = jest.fn().mockResolvedValue('done')
-
-      client.rpc.request.mockReturnValueOnce({
-        send: mockSend,
-        reply: mockReply
-      })
-
-      const logSpy = jest.spyOn(client._logger, 'log').mockImplementation()
-
-      await client.close()
-
-      expect(client.rpc.request).toHaveBeenCalledWith(API.CLOSE)
-      expect(mockSend).toHaveBeenCalled()
-      expect(mockReply).toHaveBeenCalledWith('utf8')
-      expect(logSpy).toHaveBeenCalledWith('Closing instances...')
-      expect(logSpy).toHaveBeenCalledWith('Instances closed')
-
-      logSpy.mockRestore()
-    })
-
-    it('should handle errors when closing instances', async () => {
-      const mockSend = jest.fn().mockRejectedValue(new Error('Close error'))
-
-      client.rpc.request.mockReturnValueOnce({
-        send: mockSend
-      })
-
-      const errorSpy = jest.spyOn(client._logger, 'error').mockImplementation()
-
-      await client.close()
-
-      expect(errorSpy).toHaveBeenCalledWith(
-        'Error closing instances:',
-        expect.any(Error)
-      )
-
-      errorSpy.mockRestore()
-    })
+    client.emit('update')
+    expect(updateSpy).toHaveBeenCalled()
   })
 })

@@ -46,15 +46,6 @@ import { workletLogger } from './utils/workletLogger'
 export const handleRpcCommand = async (req) => {
   const commandName = API_BY_VALUE[req.command]
 
-  if (!commandName) {
-    req.reply(
-      JSON.stringify({
-        error: `Unknown command: ${req.command}`
-      })
-    )
-    return
-  }
-
   const requestData = parseRequestData(req.data)
 
   workletLogger.log(`Received command: ${commandName}`, requestData ?? '')
@@ -602,7 +593,12 @@ export const handleRpcCommand = async (req) => {
       break
 
     default:
-      req.reply(JSON.stringify({ error: 'Command not found' }))
+      req.reply(
+        JSON.stringify({
+          error: `Unknown command: ${req.command}`
+        })
+      )
+      return
   }
 }
 
