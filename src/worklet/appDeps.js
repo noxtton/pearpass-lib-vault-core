@@ -1,5 +1,8 @@
 import Autopass from 'autopass'
+import barePath from 'bare-path'
 import Corestore from 'corestore'
+
+import { isPearWorker } from './utils/isPearWorker'
 
 let STORAGE_PATH = null
 
@@ -19,7 +22,9 @@ let listeningVaultId = null
  * @returns {Promise<void>}
  * */
 export const setStoragePath = async (path) => {
-  STORAGE_PATH = path
+  STORAGE_PATH = isPearWorker()
+    ? path
+    : path.substring('file://'.length, path.length)
 }
 
 /**
@@ -46,6 +51,11 @@ export const getActiveVaultInstance = () => activeVaultInstance
  * @returns {Autopass}
  **/
 export const getVaultsInstance = () => vaultsInstance
+
+/**
+ * @returns {Autopass}
+ **/
+export const getEncryptionInstance = () => encryptionInstance
 
 /**
  * @param {string} path
@@ -110,13 +120,23 @@ export const collectValuesByFilter = async (instance, filterFn) => {
 
   return new Promise((resolve, reject) => {
     stream.on('data', ({ key, value }) => {
+      if (!value) {
+        return
+      }
+
+      const parsedValue = JSON.parse(value)
+
+      if (!parsedValue) {
+        return
+      }
+
       if (!filterFn) {
-        results.push(value)
+        results.push(parsedValue)
         return
       }
 
       if (filterFn(key)) {
-        results.push(value)
+        results.push(parsedValue)
       }
     })
 
@@ -135,9 +155,7 @@ export const buildPath = (path) => {
     throw new Error('Storage path not set')
   }
 
-  const fullPath = STORAGE_PATH + '/' + path
-
-  return fullPath.substring('file://'.length, fullPath.length)
+  return barePath.join(STORAGE_PATH, path)
 }
 
 /**
@@ -214,7 +232,9 @@ export const encryptionGet = async (key) => {
 
   const res = await encryptionInstance.get(key)
 
-  return res
+  const parsedRes = JSON.parse(res)
+
+  return parsedRes
 }
 
 /**
@@ -227,7 +247,7 @@ export const encryptionAdd = async (key, data) => {
     throw new Error('Encryption not initialised')
   }
 
-  await encryptionInstance.add(key, data)
+  await encryptionInstance.add(key, JSON.stringify(data))
 }
 
 /**
@@ -262,7 +282,7 @@ export const activeVaultAdd = async (key, data) => {
     throw new Error('Vault not initialised')
   }
 
-  await activeVaultInstance.add(key, data)
+  await activeVaultInstance.add(key, JSON.stringify(data))
 }
 
 /**
@@ -276,7 +296,9 @@ export const vaultsGet = async (key) => {
 
   const res = await vaultsInstance.get(key)
 
-  return res
+  const parsedRes = JSON.parse(res)
+
+  return parsedRes
 }
 
 /**
@@ -289,7 +311,44 @@ export const vaultsAdd = async (key, data) => {
     throw new Error('Vault not initialised')
   }
 
-  await vaultsInstance.add(key, data)
+  await vaultsInstance.add(key, JSON.stringify(data))
+}
+
+/**
+ * @param {string} key
+ * @param {any} data
+ * @returns {Promise<void>}
+ */
+export const activeVaultAddFile = async (key, buffer) => {
+  if (!isActiveVaultInitialized) {
+    throw new Error('Vault not initialised')
+  }
+
+  await activeVaultInstance.addFile(key, buffer)
+}
+
+/**
+ * @param {string} key
+ * @returns {Promise<void>}
+ */
+export const activeVaultGetFile = async (key) => {
+  if (!isActiveVaultInitialized) {
+    throw new Error('Vault not initialised')
+  }
+
+  return activeVaultInstance.getFile(key)
+}
+
+/**
+ * @param {string} key
+ * @returns {Promise<void>}
+ */
+export const activeVaultRemoveFile = async (key) => {
+  if (!isActiveVaultInitialized) {
+    throw new Error('Vault not initialised')
+  }
+
+  await activeVaultInstance.remove(key)
 }
 
 /**
@@ -312,13 +371,10 @@ export const vaultsList = async (filterKey) => {
     throw new Error('Vaults not initialised')
   }
 
-  if (filterKey) {
-    return collectValuesByFilter(vaultsInstance, (key) =>
-      key.startsWith(filterKey)
-    )
-  }
-
-  return collectValuesByFilter(vaultsInstance)
+  return collectValuesByFilter(
+    vaultsInstance,
+    filterKey ? (key) => key.startsWith(filterKey) : undefined
+  )
 }
 
 /**
@@ -329,13 +385,10 @@ export const activeVaultList = async (filterKey) => {
     throw new Error('Vault not initialised')
   }
 
-  if (filterKey) {
-    return collectValuesByFilter(activeVaultInstance, (key) =>
-      key.startsWith(filterKey)
-    )
-  }
-
-  return collectValuesByFilter(activeVaultInstance)
+  return collectValuesByFilter(
+    activeVaultInstance,
+    filterKey ? (key) => key.startsWith(filterKey) : undefined
+  )
 }
 
 /**
@@ -349,20 +402,42 @@ export const activeVaultGet = async (key) => {
 
   const res = await activeVaultInstance.get(key)
 
-  return res
+  const parsedRes = JSON.parse(res)
+
+  return parsedRes
 }
 
 /**
  * @returns {Promise<string>}
  */
 export const createInvite = async () => {
+  await activeVaultInstance.deleteInvite()
   const inviteCode = await activeVaultInstance.createInvite()
 
   const vault = await activeVaultInstance.get('vault')
 
-  const vaultId = vault.id
+  if (!vault) {
+    throw new Error('Vault not found')
+  }
+
+  const parsedVault = JSON.parse(vault)
+
+  const vaultId = parsedVault.id
 
   return `${vaultId}/${inviteCode}`
+}
+
+/**
+ * @returns {Promise<void>}
+ */
+export const deleteInvite = async () => {
+  await activeVaultInstance.deleteInvite()
+
+  const vault = await activeVaultInstance.get('vault')
+
+  if (!vault) {
+    throw new Error('Vault not found')
+  }
 }
 
 /**
@@ -395,4 +470,25 @@ export const initListener = async ({ vaultId, onUpdate }) => {
   })
 
   listeningVaultId = vaultId
+}
+
+/**
+ * @returns {Promise<void>}
+ */
+export const closeAllInstances = async () => {
+  const closeTasks = []
+
+  if (isActiveVaultInitialized) {
+    closeTasks.push(closeActiveVaultInstance())
+  }
+
+  if (isVaultsInitialized) {
+    closeTasks.push(closeVaultsInstance())
+  }
+
+  if (isEncryptionInitialized) {
+    closeTasks.push(encryptionClose())
+  }
+
+  await Promise.all(closeTasks)
 }

@@ -46,8 +46,9 @@ jest.mock('autopass', () => {
     close: jest.fn().mockResolvedValue(),
     add: jest.fn().mockResolvedValue(),
     remove: jest.fn().mockResolvedValue(),
-    get: jest.fn().mockResolvedValue({ id: 'vault-id' }),
+    get: jest.fn().mockResolvedValue(JSON.stringify({ id: 'vault-id' })),
     createInvite: jest.fn().mockResolvedValue('invite-code'),
+    deleteInvite: jest.fn().mockResolvedValue(),
     encryptionKey: {
       toString: jest.fn().mockReturnValue('encryption-key')
     },
@@ -73,8 +74,8 @@ jest.mock('autopass', () => {
   return mockAutopass
 })
 
-jest.mock('corestore', () => {
-  return jest.fn().mockImplementation(() => ({
+jest.mock('corestore', () =>
+  jest.fn().mockImplementation(() => ({
     ready: jest.fn().mockResolvedValue(),
     close: jest.fn().mockResolvedValue(),
     add: jest.fn().mockResolvedValue(),
@@ -94,27 +95,34 @@ jest.mock('corestore', () => {
       }
     })
   }))
-})
+)
 
-jest.mock('bare-rpc', () => {
-  return jest.fn().mockImplementation(() => ({
+jest.mock('bare-rpc', () =>
+  jest.fn().mockImplementation(() => ({
     request: jest.fn().mockReturnValue({
       send: jest.fn().mockResolvedValue(),
       reply: jest.fn().mockResolvedValue('{}')
     })
   }))
-})
+)
+
+jest.mock('bare-path', () => ({
+  join: (...args) => args.join('/')
+}))
+
+jest.mock('./utils/isPearWorker', () => ({
+  isPearWorker: jest.fn().mockReturnValue(false)
+}))
 
 import * as appDeps from './appDeps'
 
 describe('appDeps module functions (excluding encryption)', () => {
   beforeEach(async () => {
     jest.resetModules()
-    await appDeps.setStoragePath(null)
   })
 
   describe('setStoragePath and buildPath', () => {
-    test('buildPath should throw if STORAGE_PATH is not set', () => {
+    test('buildPath should throw if STORAGE_PATH is not set', async () => {
       expect(() => appDeps.buildPath('vault/test')).toThrow(
         'Storage path not set'
       )
@@ -207,7 +215,10 @@ describe('appDeps module functions (excluding encryption)', () => {
       mockInstance.add = jest.fn().mockResolvedValue()
 
       await appDeps.activeVaultAdd('key1', { data: 'test' })
-      expect(mockInstance.add).toHaveBeenCalledWith('key1', { data: 'test' })
+      expect(mockInstance.add).toHaveBeenCalledWith(
+        'key1',
+        JSON.stringify({ data: 'test' })
+      )
     })
 
     test('vaultsGet calls get on vaultInstance and returns result', async () => {
@@ -226,7 +237,10 @@ describe('appDeps module functions (excluding encryption)', () => {
       mockInstance.add = jest.fn().mockResolvedValue()
 
       await appDeps.vaultsAdd('key2', { data: 'test' })
-      expect(mockInstance.add).toHaveBeenCalledWith('key2', { data: 'test' })
+      expect(mockInstance.add).toHaveBeenCalledWith(
+        'key2',
+        JSON.stringify({ data: 'test' })
+      )
     })
 
     test('vaultRemove calls remove on activeVaultInstance', async () => {
@@ -312,6 +326,41 @@ describe('appDeps module functions (excluding encryption)', () => {
       dummy.on = jest.fn()
       await appDeps.initListener('vault1')
       expect(dummy.removeAllListeners).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('closeAllInstances', () => {
+    beforeEach(() => {
+      jest.spyOn(appDeps, 'initInstance').mockResolvedValue(
+        appDeps.__dummyInstance || {
+          ready: jest.fn().mockResolvedValue(),
+          close: jest.fn().mockResolvedValue()
+        }
+      )
+    })
+    test('closeAllInstances closes all initialized instances', async () => {
+      await appDeps.setStoragePath('file://base')
+      await appDeps.initActiveVaultInstance('vault1')
+      await appDeps.vaultsInit('vault1')
+      await appDeps.encryptionInit('vault1')
+
+      const activeVault = appDeps.getActiveVaultInstance()
+      const vaults = appDeps.getVaultsInstance()
+      const encryption = appDeps.getEncryptionInstance()
+
+      const closeSpy1 = jest.spyOn(activeVault, 'close')
+      const closeSpy2 = jest.spyOn(vaults, 'close')
+      const closeSpy3 = jest.spyOn(encryption, 'close')
+
+      await appDeps.closeAllInstances()
+
+      expect(closeSpy1).toHaveBeenCalled()
+      expect(closeSpy2).toHaveBeenCalled()
+      expect(closeSpy3).toHaveBeenCalled()
+
+      expect(appDeps.getIsActiveVaultInitialized()).toBe(false)
+      expect(appDeps.getIsVaultsInitialized()).toBe(false)
+      expect(appDeps.getIsEncryptionInitialized()).toBe(false)
     })
   })
 })

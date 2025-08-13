@@ -26,18 +26,32 @@ import {
   VAULTS_GET,
   ENCRYPTION_HASH_PASSWORD,
   ENCRYPTION_ENCRYPT_VAULT_KEY_WITH_HASHED_PASSWORD,
-  ENCRYPTION_ENCRYPT_VAULT_WITH_KEY
+  ENCRYPTION_ENCRYPT_VAULT_WITH_KEY,
+  CLOSE,
+  ACTIVE_VAULT_DELETE_INVITE,
+  ENCRYPTION_DECRYPT_VAULT_KEY
 } from '../worklet/api'
 
-jest.mock('bare-rpc', () => {
-  return jest.fn().mockImplementation((ipc, callback) => {
-    return {
-      IPC: ipc,
-      _callback: callback,
-      request: jest.fn()
-    }
-  })
-})
+jest.mock('bare-rpc', () =>
+  jest.fn().mockImplementation((ipc, callback) => ({
+    IPC: ipc,
+    _callback: callback,
+    request: jest.fn()
+  }))
+)
+
+jest.mock('compact-encoding', () =>
+  jest.fn().mockImplementation(() => ({
+    encode: jest.fn(),
+    decode: jest.fn()
+  }))
+)
+
+jest.mock('framed-stream', () =>
+  jest.fn().mockImplementation(() => ({
+    create: jest.fn()
+  }))
+)
 
 describe('PearpassVaultClient', () => {
   let client, fakeWorklet
@@ -63,7 +77,7 @@ describe('PearpassVaultClient', () => {
       expect(mockSend).toHaveBeenCalledWith(
         JSON.stringify({ path: '/new/path' })
       )
-      expect(mockReply).toHaveBeenCalledWith('utf8')
+      expect(mockReply).toHaveBeenCalled()
     })
   })
 
@@ -364,6 +378,27 @@ describe('PearpassVaultClient', () => {
     })
   })
 
+  describe('activeVaultDeleteInvite', () => {
+    it('should delete an invite and return success', async () => {
+      const responseObj = { success: true }
+      const replyData = JSON.stringify(responseObj)
+      const mockSend = jest.fn().mockResolvedValue()
+      const mockReply = jest.fn().mockResolvedValue(replyData)
+      client.rpc.request.mockReturnValueOnce({
+        send: mockSend,
+        reply: mockReply
+      })
+
+      const result = await client.activeVaultDeleteInvite()
+      expect(client.rpc.request).toHaveBeenCalledWith(
+        ACTIVE_VAULT_DELETE_INVITE
+      )
+      expect(mockSend).toHaveBeenCalled()
+      expect(mockReply).toHaveBeenCalledWith('utf8')
+      expect(result).toEqual(responseObj.success)
+    })
+  })
+
   describe('pair', () => {
     it('should pair using an invite code and return paired data', async () => {
       const inviteCode = 'INV123'
@@ -563,20 +598,6 @@ describe('PearpassVaultClient', () => {
       consoleErrorSpy.mockRestore()
     })
 
-    it('should handle LOGGER commands from RPC', () => {
-      const consoleSpy = jest.spyOn(console, 'log').mockImplementation()
-      const client = new PearpassVaultClient(fakeWorklet, '/path', {
-        debugMode: true
-      })
-
-      const callback = client.rpc._callback
-      callback({ command: 'LOGGER_test_message' })
-
-      expect(consoleSpy).toHaveBeenCalledWith('LOGGER:', '_test_message')
-
-      consoleSpy.mockRestore()
-    })
-
     it('should log errors for unknown commands', () => {
       const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation()
       const client = new PearpassVaultClient(fakeWorklet, '/path')
@@ -758,7 +779,7 @@ describe('PearpassVaultClient', () => {
       const result = await client.decryptVaultKey(decryptParams)
 
       expect(client.rpc.request).toHaveBeenCalledWith(
-        'ENCRYPTION_DECRYPT_VAULT_KEY'
+        ENCRYPTION_DECRYPT_VAULT_KEY
       )
       expect(mockSend).toHaveBeenCalledWith(JSON.stringify(decryptParams))
       expect(mockReply).toHaveBeenCalledWith('utf8')
@@ -1006,6 +1027,48 @@ describe('PearpassVaultClient', () => {
       )
 
       consoleSpy.mockRestore()
+    })
+  })
+  describe('close', () => {
+    it('should send a close request and log success messages', async () => {
+      const mockSend = jest.fn().mockResolvedValue()
+      const mockReply = jest.fn().mockResolvedValue('done')
+
+      client.rpc.request.mockReturnValueOnce({
+        send: mockSend,
+        reply: mockReply
+      })
+
+      const logSpy = jest.spyOn(client._logger, 'log').mockImplementation()
+
+      await client.close()
+
+      expect(client.rpc.request).toHaveBeenCalledWith(CLOSE)
+      expect(mockSend).toHaveBeenCalled()
+      expect(mockReply).toHaveBeenCalledWith('utf8')
+      expect(logSpy).toHaveBeenCalledWith('Closing instances...')
+      expect(logSpy).toHaveBeenCalledWith('Instances closed')
+
+      logSpy.mockRestore()
+    })
+
+    it('should handle errors when closing instances', async () => {
+      const mockSend = jest.fn().mockRejectedValue(new Error('Close error'))
+
+      client.rpc.request.mockReturnValueOnce({
+        send: mockSend
+      })
+
+      const errorSpy = jest.spyOn(client._logger, 'error').mockImplementation()
+
+      await client.close()
+
+      expect(errorSpy).toHaveBeenCalledWith(
+        'Error closing instances:',
+        expect.any(Error)
+      )
+
+      errorSpy.mockRestore()
     })
   })
 })

@@ -25,7 +25,8 @@ import {
   ENCRYPTION_GET_DECRYPTION_KEY,
   ENCRYPTION_ENCRYPT_VAULT_KEY_WITH_HASHED_PASSWORD,
   ENCRYPTION_HASH_PASSWORD,
-  ENCRYPTION_ENCRYPT_VAULT_WITH_KEY
+  ENCRYPTION_ENCRYPT_VAULT_WITH_KEY,
+  CLOSE
 } from './api'
 import { handleRpcCommand } from './app'
 import {
@@ -47,7 +48,8 @@ import {
   encryptionGet,
   encryptionAdd,
   getIsActiveVaultInitialized,
-  vaultsGet
+  vaultsGet,
+  closeAllInstances
 } from './appDeps'
 import { decryptVaultKey } from './decryptVaultKey'
 import { encryptVaultKeyWithHashedPassword } from './encryptVaultKeyWithHashedPassword'
@@ -58,74 +60,82 @@ import { hashPassword } from './hashPassword'
 jest.mock('./decryptVaultKey', () => ({
   decryptVaultKey: jest.fn()
 }))
-
 jest.mock('./getDecryptionKey', () => ({
   getDecryptionKey: jest.fn()
 }))
-
 jest.mock('./encryptVaultKeyWithHashedPassword', () => ({
   encryptVaultKeyWithHashedPassword: jest.fn()
 }))
-
 jest.mock('./encryptVaultWithKey', () => ({
   encryptVaultWithKey: jest.fn()
 }))
-
 jest.mock('./hashPassword', () => ({
   hashPassword: jest.fn()
 }))
+jest.mock('bare-rpc', () =>
+  jest.fn().mockImplementation((ipc, callback) => ({
+    _callback: callback,
+    request: jest.fn()
+  }))
+)
+jest.mock('framed-stream', () =>
+  jest.fn().mockImplementation(() => ({
+    create: jest.fn()
+  }))
+)
+jest.mock('./utils/isPearWorker', () => ({
+  isPearWorker: jest.fn().mockReturnValue(false)
+}))
+jest.mock('./utils/workletLogger', () => ({
+  workletLogger: jest.fn()
+}))
 
-jest.mock('bare-rpc', () => {
-  return jest.fn().mockImplementation((ipc, callback) => {
-    return {
-      _callback: callback,
-      request: jest.fn()
-    }
-  })
-})
-
-jest.mock('./appDeps', () => {
-  return {
-    vaultsInit: jest.fn().mockResolvedValue(true),
-    setStoragePath: jest.fn(),
-    encryptionClose: jest.fn().mockResolvedValue(),
-    closeVaultsInstance: jest.fn().mockResolvedValue(),
-    vaultsAdd: jest.fn().mockResolvedValue(),
-    vaultsGet: jest.fn().mockResolvedValue({}),
-    vaultsList: jest.fn().mockResolvedValue([]),
-    activeVaultInit: jest.fn().mockResolvedValue(),
-    activeVaultClose: jest.fn().mockResolvedValue(),
-    activeVaultAdd: jest.fn().mockResolvedValue(),
-    initActiveVaultInstance: jest.fn().mockResolvedValue(),
-    closeActiveVaultInstance: jest.fn().mockResolvedValue(),
-    vaultRemove: jest.fn().mockResolvedValue(),
-    activeVaultList: jest.fn().mockResolvedValue([]),
-    activeVaultGet: jest.fn().mockResolvedValue({}),
-    createInvite: jest.fn().mockResolvedValue('invite-code'),
-    pair: jest.fn().mockResolvedValue({}),
-    initListener: jest.fn().mockResolvedValue(),
-    encryptionInit: jest.fn().mockResolvedValue(),
-    encryptionGet: jest.fn().mockResolvedValue({}),
-    encryptionAdd: jest.fn().mockResolvedValue(),
-    initInstance: jest.fn().mockResolvedValue(),
-    buildPath: jest.fn().mockReturnValue('/test/path'),
-    getIsVaultsInitialized: jest.fn().mockReturnValue(false),
-    getIsActiveVaultInitialized: jest.fn().mockReturnValue(false),
-    getIsEncryptionInitialized: jest.fn().mockReturnValue(false)
-  }
-})
+jest.mock('./appDeps', () => ({
+  vaultsInit: jest.fn().mockResolvedValue(true),
+  setStoragePath: jest.fn(),
+  encryptionClose: jest.fn().mockResolvedValue(),
+  closeVaultsInstance: jest.fn().mockResolvedValue(),
+  vaultsAdd: jest.fn().mockResolvedValue(),
+  vaultsGet: jest.fn().mockResolvedValue({}),
+  vaultsList: jest.fn().mockResolvedValue([]),
+  activeVaultInit: jest.fn().mockResolvedValue(),
+  activeVaultClose: jest.fn().mockResolvedValue(),
+  activeVaultAdd: jest.fn().mockResolvedValue(),
+  initActiveVaultInstance: jest.fn().mockResolvedValue(),
+  closeActiveVaultInstance: jest.fn().mockResolvedValue(),
+  vaultRemove: jest.fn().mockResolvedValue(),
+  activeVaultList: jest.fn().mockResolvedValue([]),
+  activeVaultGet: jest.fn().mockResolvedValue({}),
+  createInvite: jest.fn().mockResolvedValue('invite-code'),
+  pair: jest.fn().mockResolvedValue({}),
+  initListener: jest.fn().mockResolvedValue(),
+  encryptionInit: jest.fn().mockResolvedValue(),
+  encryptionGet: jest.fn().mockResolvedValue({}),
+  encryptionAdd: jest.fn().mockResolvedValue(),
+  initInstance: jest.fn().mockResolvedValue(),
+  buildPath: jest.fn().mockReturnValue('/test/path'),
+  getIsVaultsInitialized: jest.fn().mockReturnValue(false),
+  getIsActiveVaultInitialized: jest.fn().mockReturnValue(false),
+  getIsEncryptionInitialized: jest.fn().mockReturnValue(false),
+  closeAllInstances: jest.fn().mockResolvedValue()
+}))
 
 describe('RPC handler', () => {
   let mockRequest
 
   beforeAll(() => {
     global.BareKit = {
-      IPC: {}
+      IPC: {
+        on: jest.fn(),
+        off: jest.fn(),
+        emit: jest.fn()
+      }
     }
   })
 
   beforeEach(() => {
     jest.clearAllMocks()
+    jest.resetModules()
 
     mockRequest = {
       command: '',
@@ -553,6 +563,32 @@ describe('RPC handler', () => {
     expect(mockRequest.reply).toHaveBeenCalledWith(
       JSON.stringify({
         error: 'Error decrypting vault key: Error: Decryption failed'
+      })
+    )
+  })
+
+  test('should handle CLOSE command', async () => {
+    mockRequest.command = CLOSE
+
+    await handleRpcCommand(mockRequest)
+
+    expect(closeAllInstances).toHaveBeenCalled()
+    expect(mockRequest.reply).toHaveBeenCalledWith(
+      JSON.stringify({ success: true })
+    )
+  })
+
+  test('should handle error in CLOSE command', async () => {
+    const errorMessage = 'Something went wrong'
+    closeAllInstances.mockRejectedValueOnce(new Error(errorMessage))
+
+    mockRequest.command = CLOSE
+
+    await handleRpcCommand(mockRequest)
+
+    expect(mockRequest.reply).toHaveBeenCalledWith(
+      JSON.stringify({
+        error: `Error closing encryption: Error: ${errorMessage}`
       })
     )
   })

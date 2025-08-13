@@ -1,73 +1,93 @@
 import RPC from 'bare-rpc'
+import FramedStream from 'framed-stream'
 
 import {
-  ACTIVE_VAULT_CLOSE,
-  VAULTS_CLOSE,
-  ACTIVE_VAULT_INIT,
-  VAULTS_INIT,
-  STORAGE_PATH_SET,
   ACTIVE_VAULT_ADD,
-  VAULTS_ADD,
-  ACTIVE_VAULT_REMOVE,
-  VAULTS_LIST,
-  ACTIVE_VAULT_LIST,
-  ACTIVE_VAULT_GET,
-  VAULTS_GET_STATUS,
-  ACTIVE_VAULT_GET_STATUS,
+  ACTIVE_VAULT_CLOSE,
   ACTIVE_VAULT_CREATE_INVITE,
-  PAIR,
-  INIT_LISTENER,
-  ON_UPDATE,
-  ENCRYPTION_INIT,
-  ENCRYPTION_GET_STATUS,
-  ENCRYPTION_GET,
+  ACTIVE_VAULT_DELETE_INVITE,
+  ACTIVE_VAULT_FILE_ADD,
+  ACTIVE_VAULT_FILE_GET,
+  ACTIVE_VAULT_FILE_REMOVE,
+  ACTIVE_VAULT_GET,
+  ACTIVE_VAULT_GET_STATUS,
+  ACTIVE_VAULT_INIT,
+  ACTIVE_VAULT_LIST,
+  ACTIVE_VAULT_REMOVE,
+  CLOSE,
   ENCRYPTION_ADD,
   ENCRYPTION_CLOSE,
+  ENCRYPTION_DECRYPT_VAULT_KEY,
   ENCRYPTION_ENCRYPT_VAULT_KEY_WITH_HASHED_PASSWORD,
   ENCRYPTION_ENCRYPT_VAULT_WITH_KEY,
-  ENCRYPTION_HASH_PASSWORD,
-  ENCRYPTION_DECRYPT_VAULT_KEY,
+  ENCRYPTION_GET,
   ENCRYPTION_GET_DECRYPTION_KEY,
-  VAULTS_GET
+  ENCRYPTION_GET_STATUS,
+  ENCRYPTION_HASH_PASSWORD,
+  ENCRYPTION_INIT,
+  INIT_LISTENER,
+  ON_UPDATE,
+  PAIR,
+  STORAGE_PATH_SET,
+  VAULTS_ADD,
+  VAULTS_CLOSE,
+  VAULTS_GET,
+  VAULTS_GET_STATUS,
+  VAULTS_INIT,
+  VAULTS_LIST
 } from './api'
 import {
-  vaultsInit,
-  encryptionClose,
-  closeVaultsInstance,
-  vaultsAdd,
-  vaultsList,
   activeVaultAdd,
-  initActiveVaultInstance,
-  closeActiveVaultInstance,
-  vaultRemove,
-  activeVaultList,
+  activeVaultAddFile,
   activeVaultGet,
+  activeVaultGetFile,
+  activeVaultList,
+  activeVaultRemoveFile,
+  closeActiveVaultInstance,
+  closeAllInstances,
+  closeVaultsInstance,
   createInvite,
-  pair,
-  initListener,
-  encryptionInit,
-  encryptionGet,
+  deleteInvite,
   encryptionAdd,
-  setStoragePath,
-  getIsVaultsInitialized,
+  encryptionClose,
+  encryptionGet,
+  encryptionInit,
   getIsActiveVaultInitialized,
   getIsEncryptionInitialized,
-  vaultsGet
+  getIsVaultsInitialized,
+  initActiveVaultInstance,
+  initListener,
+  pair,
+  setStoragePath,
+  vaultRemove,
+  vaultsAdd,
+  vaultsGet,
+  vaultsInit,
+  vaultsList
 } from './appDeps'
 import { decryptVaultKey } from './decryptVaultKey'
 import { encryptVaultKeyWithHashedPassword } from './encryptVaultKeyWithHashedPassword'
 import { encryptVaultWithKey } from './encryptVaultWithKey'
 import { getDecryptionKey } from './getDecryptionKey'
 import { hashPassword } from './hashPassword'
+import { receiveFileStream } from '../utils/recieveFileStream'
+import { sendFileStream } from '../utils/sendFileStream'
+import { isPearWorker } from './utils/isPearWorker'
+import { parseRequestData } from './utils/parseRequestData'
+import { workletLogger } from './utils/workletLogger'
 
 export const handleRpcCommand = async (req) => {
-  const data = req?.data ? JSON.parse(req?.data) : undefined
+  const data = parseRequestData(req.data)
 
   switch (req.command) {
     case STORAGE_PATH_SET:
+      workletLogger.log('Setting storage path:', data?.path)
+
       setStoragePath(data?.path)
 
       req.reply(JSON.stringify({ success: true }))
+
+      workletLogger.log('Storage path set successfully:', data?.path)
 
       break
 
@@ -134,6 +154,66 @@ export const handleRpcCommand = async (req) => {
         req.reply(
           JSON.stringify({
             error: `Error adding vault: ${error}`
+          })
+        )
+      }
+
+      break
+
+    case ACTIVE_VAULT_FILE_ADD:
+      try {
+        const stream = req.createRequestStream()
+
+        const { buffer, metaData } = await receiveFileStream(stream)
+
+        await activeVaultAddFile(metaData.key, buffer)
+
+        workletLogger.log({
+          stream: `Received stream data of size: ${buffer.length}`,
+          data: JSON.stringify(metaData)
+        })
+
+        req.reply(JSON.stringify({ success: true, metaData }))
+      } catch (error) {
+        req.reply(
+          JSON.stringify({
+            error: `Error adding file to active vault: ${error}`
+          })
+        )
+      }
+
+      break
+
+    case ACTIVE_VAULT_FILE_GET:
+      try {
+        const file = await activeVaultGetFile(data?.key)
+
+        const stream = req.createResponseStream()
+
+        sendFileStream({
+          stream,
+          buffer: file,
+          metaData: { key: data?.key }
+        })
+      } catch (error) {
+        req.reply(
+          JSON.stringify({
+            error: `Error getting file from active vault: ${error}`
+          })
+        )
+      }
+
+      break
+
+    case ACTIVE_VAULT_FILE_REMOVE:
+      try {
+        await activeVaultRemoveFile(data?.key)
+
+        req.reply(JSON.stringify({ success: true }))
+      } catch (error) {
+        req.reply(
+          JSON.stringify({
+            error: `Error removing file from active vault: ${error}`
           })
         )
       }
@@ -259,6 +339,21 @@ export const handleRpcCommand = async (req) => {
         req.reply(
           JSON.stringify({
             error: `Error creating invite from active vault: ${error}`
+          })
+        )
+      }
+
+      break
+
+    case ACTIVE_VAULT_DELETE_INVITE:
+      try {
+        await deleteInvite()
+
+        req.reply(JSON.stringify({ success: true }))
+      } catch (error) {
+        req.reply(
+          JSON.stringify({
+            error: `Error deleting invite from active vault: ${error}`
           })
         )
       }
@@ -461,9 +556,32 @@ export const handleRpcCommand = async (req) => {
 
       break
 
+    case CLOSE:
+      try {
+        await closeAllInstances()
+
+        req.reply(JSON.stringify({ success: true }))
+      } catch (error) {
+        req.reply(
+          JSON.stringify({
+            error: `Error closing encryption: ${error}`
+          })
+        )
+      }
+
+      break
+
     default:
       req.reply(JSON.stringify({ error: 'Command not found' }))
   }
 }
 
-export const rpc = new RPC(BareKit.IPC, handleRpcCommand)
+const ipc = isPearWorker() ? Pear.worker.pipe() : BareKit.IPC
+
+// eslint-disable-next-line no-undef
+ipc.on('close', () => Bare.exit(0))
+
+// eslint-disable-next-line no-undef
+ipc.on('end', () => Bare.exit(0))
+
+export const rpc = new RPC(new FramedStream(ipc), handleRpcCommand)
