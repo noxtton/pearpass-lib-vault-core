@@ -604,6 +604,38 @@ export const handleRpcCommand = async (req) => {
 
 const ipc = isPearWorker() ? Pear.worker.pipe() : BareKit.IPC
 
+// workaround for reusing the handleRpcCommand function with the autofill extension
+if(!isPearWorker()) {
+  BareKit.IPC.on('data', async (buffer) => {
+    const rawData = buffer.toString('utf8');
+    const isExtension = rawData.includes('"source":"ios-extension"');
+
+    // If the message is from the extension, handle it
+    if(isExtension) {
+      try {
+        const {command, data} = JSON.parse(rawData);
+        workletLogger.log('Received message:', {command, data});
+    
+        const req = {
+          command: command,
+          data: JSON.stringify(data),
+          reply: data => {
+            BareKit.IPC.write(data)
+          },
+          createRequestStream: () => {},
+          createResponseStream: () => {},
+          send: () => {},
+        }
+      
+        await handleRpcCommand(req)
+          
+      } catch (error) {
+        workletLogger.error('Error receiving message:', error);
+      }
+    }
+  })
+}
+
 // eslint-disable-next-line no-undef
 ipc.on('close', () => Bare.exit(0))
 
