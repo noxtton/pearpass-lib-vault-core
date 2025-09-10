@@ -30,6 +30,6 @@
     "@babel/preset-env": "7.26.9",
     "babel-jest": "29.7.0",
     "jest": "29.7.0",
-    "tether-dev-docs": "github:noxtton/tether-dev-docs#v0.0.6"
+    "tether-dev-docs": "github:tetherto/tether-dev-docs#v0.0.6"
   }
 }
