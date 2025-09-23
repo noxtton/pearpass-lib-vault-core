@@ -1,33 +1,4 @@
-import {
-  STORAGE_PATH_SET,
-  VAULTS_INIT,
-  VAULTS_GET_STATUS,
-  VAULTS_CLOSE,
-  VAULTS_ADD,
-  VAULTS_LIST,
-  ACTIVE_VAULT_INIT,
-  ACTIVE_VAULT_GET_STATUS,
-  ACTIVE_VAULT_CLOSE,
-  ACTIVE_VAULT_ADD,
-  ACTIVE_VAULT_REMOVE,
-  ACTIVE_VAULT_LIST,
-  ACTIVE_VAULT_GET,
-  ACTIVE_VAULT_CREATE_INVITE,
-  PAIR,
-  INIT_LISTENER,
-  ENCRYPTION_INIT,
-  ENCRYPTION_GET_STATUS,
-  ENCRYPTION_GET,
-  ENCRYPTION_ADD,
-  ENCRYPTION_CLOSE,
-  ENCRYPTION_DECRYPT_VAULT_KEY,
-  VAULTS_GET,
-  ENCRYPTION_GET_DECRYPTION_KEY,
-  ENCRYPTION_ENCRYPT_VAULT_KEY_WITH_HASHED_PASSWORD,
-  ENCRYPTION_HASH_PASSWORD,
-  ENCRYPTION_ENCRYPT_VAULT_WITH_KEY,
-  CLOSE
-} from './api'
+import { API } from './api'
 import { handleRpcCommand } from './app'
 import {
   vaultsInit,
@@ -42,14 +13,15 @@ import {
   activeVaultList,
   activeVaultGet,
   createInvite,
-  pair,
+  pairActiveVault,
   initListener,
   encryptionInit,
   encryptionGet,
   encryptionAdd,
   getIsActiveVaultInitialized,
   vaultsGet,
-  closeAllInstances
+  closeAllInstances,
+  cancelPairActiveVault
 } from './appDeps'
 import { decryptVaultKey } from './decryptVaultKey'
 import { encryptVaultKeyWithHashedPassword } from './encryptVaultKeyWithHashedPassword'
@@ -87,7 +59,13 @@ jest.mock('./utils/isPearWorker', () => ({
   isPearWorker: jest.fn().mockReturnValue(false)
 }))
 jest.mock('./utils/workletLogger', () => ({
-  workletLogger: jest.fn()
+  workletLogger: {
+    log: jest.fn(),
+    error: jest.fn(),
+    warn: jest.fn(),
+    info: jest.fn(),
+    debug: jest.fn()
+  }
 }))
 
 jest.mock('./appDeps', () => ({
@@ -107,7 +85,8 @@ jest.mock('./appDeps', () => ({
   activeVaultList: jest.fn().mockResolvedValue([]),
   activeVaultGet: jest.fn().mockResolvedValue({}),
   createInvite: jest.fn().mockResolvedValue('invite-code'),
-  pair: jest.fn().mockResolvedValue({}),
+  pairActiveVault: jest.fn().mockResolvedValue({}),
+  cancelPairActiveVault: jest.fn().mockResolvedValue(),
   initListener: jest.fn().mockResolvedValue(),
   encryptionInit: jest.fn().mockResolvedValue(),
   encryptionGet: jest.fn().mockResolvedValue({}),
@@ -145,7 +124,7 @@ describe('RPC handler', () => {
   })
 
   test('should handle STORAGE_PATH_SET command', async () => {
-    mockRequest.command = STORAGE_PATH_SET
+    mockRequest.command = API.STORAGE_PATH_SET
     mockRequest.data = JSON.stringify({ path: '/test/path' })
 
     await handleRpcCommand(mockRequest)
@@ -155,8 +134,8 @@ describe('RPC handler', () => {
     )
   })
 
-  test('should handle VAULTS_INIT command with password', async () => {
-    mockRequest.command = VAULTS_INIT
+  test('should handle MASTER_VAULT_INIT command with password', async () => {
+    mockRequest.command = API.MASTER_VAULT_INIT
     mockRequest.data = JSON.stringify({ encryptionKey: 'testpassword' })
 
     await handleRpcCommand(mockRequest)
@@ -167,8 +146,8 @@ describe('RPC handler', () => {
     )
   })
 
-  test('should handle VAULTS_INIT command without password', async () => {
-    mockRequest.command = VAULTS_INIT
+  test('should handle MASTER_VAULT_INIT command without password', async () => {
+    mockRequest.command = API.MASTER_VAULT_INIT
     mockRequest.data = JSON.stringify({})
 
     await handleRpcCommand(mockRequest)
@@ -180,18 +159,18 @@ describe('RPC handler', () => {
     )
   })
 
-  test('should handle VAULTS_GET_STATUS command', async () => {
-    mockRequest.command = VAULTS_GET_STATUS
+  test('should handle MASTER_VAULT_GET_STATUS command', async () => {
+    mockRequest.command = API.MASTER_VAULT_GET_STATUS
 
     await handleRpcCommand(mockRequest)
 
     expect(mockRequest.reply).toHaveBeenCalledWith(
-      JSON.stringify({ status: false })
+      JSON.stringify({ data: { status: false } })
     )
   })
 
-  test('should handle VAULTS_GET command', async () => {
-    mockRequest.command = VAULTS_GET
+  test('should handle MASTER_VAULT_GET command', async () => {
+    mockRequest.command = API.MASTER_VAULT_GET
     mockRequest.data = JSON.stringify({ key: 'testKey' })
     vaultsGet.mockResolvedValueOnce({ test: 'data' })
 
@@ -203,8 +182,8 @@ describe('RPC handler', () => {
     )
   })
 
-  test('should handle VAULTS_CLOSE command', async () => {
-    mockRequest.command = VAULTS_CLOSE
+  test('should handle MASTER_VAULT_CLOSE command', async () => {
+    mockRequest.command = API.MASTER_VAULT_CLOSE
 
     await handleRpcCommand(mockRequest)
 
@@ -214,8 +193,8 @@ describe('RPC handler', () => {
     )
   })
 
-  test('should handle VAULTS_ADD command', async () => {
-    mockRequest.command = VAULTS_ADD
+  test('should handle MASTER_VAULT_ADD command', async () => {
+    mockRequest.command = API.MASTER_VAULT_ADD
     mockRequest.data = JSON.stringify({
       key: 'testKey',
       data: { test: 'data' }
@@ -229,8 +208,8 @@ describe('RPC handler', () => {
     )
   })
 
-  test('should handle VAULTS_LIST command', async () => {
-    mockRequest.command = VAULTS_LIST
+  test('should handle MASTER_VAULT_LIST command', async () => {
+    mockRequest.command = API.MASTER_VAULT_LIST
     mockRequest.data = JSON.stringify({ filterKey: 'filter' })
     const data = [{ id: 1 }, { id: 2 }]
 
@@ -243,7 +222,7 @@ describe('RPC handler', () => {
   })
 
   test('should handle ACTIVE_VAULT_INIT command', async () => {
-    mockRequest.command = ACTIVE_VAULT_INIT
+    mockRequest.command = API.ACTIVE_VAULT_INIT
     mockRequest.data = JSON.stringify({
       id: 'vault-id',
       encryptionKey: 'testpassword'
@@ -261,18 +240,18 @@ describe('RPC handler', () => {
   })
 
   test('should handle ACTIVE_VAULT_GET_STATUS command', async () => {
-    mockRequest.command = ACTIVE_VAULT_GET_STATUS
+    mockRequest.command = API.ACTIVE_VAULT_GET_STATUS
     getIsActiveVaultInitialized.mockReturnValueOnce(true)
 
     await handleRpcCommand(mockRequest)
 
     expect(mockRequest.reply).toHaveBeenCalledWith(
-      JSON.stringify({ status: true })
+      JSON.stringify({ data: { status: true } })
     )
   })
 
   test('should handle ACTIVE_VAULT_CLOSE command', async () => {
-    mockRequest.command = ACTIVE_VAULT_CLOSE
+    mockRequest.command = API.ACTIVE_VAULT_CLOSE
     getIsActiveVaultInitialized.mockReturnValueOnce(true)
 
     await handleRpcCommand(mockRequest)
@@ -284,7 +263,7 @@ describe('RPC handler', () => {
   })
 
   test('should handle ACTIVE_VAULT_ADD command', async () => {
-    mockRequest.command = ACTIVE_VAULT_ADD
+    mockRequest.command = API.ACTIVE_VAULT_ADD
     mockRequest.data = JSON.stringify({
       key: 'testKey',
       data: { test: 'data' }
@@ -304,12 +283,12 @@ describe('RPC handler', () => {
     await handleRpcCommand(mockRequest)
 
     expect(mockRequest.reply).toHaveBeenCalledWith(
-      JSON.stringify({ error: 'Command not found' })
+      JSON.stringify({ error: 'Unknown command: UNKNOWN_COMMAND' })
     )
   })
 
   test('should handle ACTIVE_VAULT_REMOVE command', async () => {
-    mockRequest.command = ACTIVE_VAULT_REMOVE
+    mockRequest.command = API.ACTIVE_VAULT_REMOVE
     mockRequest.data = JSON.stringify({ key: 'testKey' })
 
     await handleRpcCommand(mockRequest)
@@ -321,7 +300,7 @@ describe('RPC handler', () => {
   })
 
   test('should handle ACTIVE_VAULT_LIST command', async () => {
-    mockRequest.command = ACTIVE_VAULT_LIST
+    mockRequest.command = API.ACTIVE_VAULT_LIST
     mockRequest.data = JSON.stringify({ filterKey: 'filter' })
     activeVaultList.mockResolvedValueOnce([{ id: 1 }, { id: 2 }])
 
@@ -334,7 +313,7 @@ describe('RPC handler', () => {
   })
 
   test('should handle ACTIVE_VAULT_GET command', async () => {
-    mockRequest.command = ACTIVE_VAULT_GET
+    mockRequest.command = API.ACTIVE_VAULT_GET
     mockRequest.data = JSON.stringify({ key: 'testKey' })
     activeVaultGet.mockResolvedValueOnce({ test: 'data' })
 
@@ -347,7 +326,7 @@ describe('RPC handler', () => {
   })
 
   test('should handle ACTIVE_VAULT_CREATE_INVITE command', async () => {
-    mockRequest.command = ACTIVE_VAULT_CREATE_INVITE
+    mockRequest.command = API.ACTIVE_VAULT_CREATE_INVITE
     createInvite.mockResolvedValueOnce('vault-id/invite-code')
 
     await handleRpcCommand(mockRequest)
@@ -358,21 +337,36 @@ describe('RPC handler', () => {
     )
   })
 
-  test('should handle PAIR command', async () => {
-    mockRequest.command = PAIR
+  test('should handle PAIR_ACTIVE_VAULT command', async () => {
+    mockRequest.command = API.PAIR_ACTIVE_VAULT
     mockRequest.data = JSON.stringify({ inviteCode: 'vault-id/invite-code' })
-    pair.mockResolvedValueOnce({ vaultId: 'vault-id', encryptionKey: 'key' })
+    pairActiveVault.mockResolvedValueOnce({
+      vaultId: 'vault-id',
+      encryptionKey: 'key'
+    })
 
     await handleRpcCommand(mockRequest)
 
-    expect(pair).toHaveBeenCalledWith('vault-id/invite-code')
+    expect(pairActiveVault).toHaveBeenCalledWith('vault-id/invite-code')
     expect(mockRequest.reply).toHaveBeenCalledWith(
       JSON.stringify({ data: { vaultId: 'vault-id', encryptionKey: 'key' } })
     )
   })
 
+  test('should handle CANCEL_PAIR_ACTIVE_VAULT command', async () => {
+    mockRequest.command = API.CANCEL_PAIR_ACTIVE_VAULT
+    cancelPairActiveVault.mockResolvedValueOnce()
+
+    await handleRpcCommand(mockRequest)
+
+    expect(cancelPairActiveVault).toHaveBeenCalled()
+    expect(mockRequest.reply).toHaveBeenCalledWith(
+      JSON.stringify({ success: true })
+    )
+  })
+
   test('should handle INIT_LISTENER command', async () => {
-    mockRequest.command = INIT_LISTENER
+    mockRequest.command = API.INIT_LISTENER
     mockRequest.data = JSON.stringify({ vaultId: 'vault-id' })
     getIsActiveVaultInitialized.mockReturnValueOnce(true)
     initListener.mockResolvedValueOnce()
@@ -389,7 +383,7 @@ describe('RPC handler', () => {
   })
 
   test('should handle ENCRYPTION_INIT command', async () => {
-    mockRequest.command = ENCRYPTION_INIT
+    mockRequest.command = API.ENCRYPTION_INIT
 
     await handleRpcCommand(mockRequest)
 
@@ -400,17 +394,17 @@ describe('RPC handler', () => {
   })
 
   test('should handle ENCRYPTION_GET_STATUS command', async () => {
-    mockRequest.command = ENCRYPTION_GET_STATUS
+    mockRequest.command = API.ENCRYPTION_GET_STATUS
 
     await handleRpcCommand(mockRequest)
 
     expect(mockRequest.reply).toHaveBeenCalledWith(
-      JSON.stringify({ status: false })
+      JSON.stringify({ data: { status: false } })
     )
   })
 
   test('should handle ENCRYPTION_GET command', async () => {
-    mockRequest.command = ENCRYPTION_GET
+    mockRequest.command = API.ENCRYPTION_GET
     mockRequest.data = JSON.stringify({ key: 'testKey' })
     encryptionGet.mockResolvedValueOnce({ test: 'data' })
 
@@ -423,7 +417,7 @@ describe('RPC handler', () => {
   })
 
   test('should handle ENCRYPTION_ADD command', async () => {
-    mockRequest.command = ENCRYPTION_ADD
+    mockRequest.command = API.ENCRYPTION_ADD
     mockRequest.data = JSON.stringify({
       key: 'testKey',
       data: { test: 'data' }
@@ -438,7 +432,7 @@ describe('RPC handler', () => {
   })
 
   test('should handle ENCRYPTION_CLOSE command', async () => {
-    mockRequest.command = ENCRYPTION_CLOSE
+    mockRequest.command = API.ENCRYPTION_CLOSE
 
     await handleRpcCommand(mockRequest)
 
@@ -449,7 +443,7 @@ describe('RPC handler', () => {
   })
 
   test('should handle ENCRYPTION_ENCRYPT_VAULT_KEY_WITH_HASHED_PASSWORD command', async () => {
-    mockRequest.command = ENCRYPTION_ENCRYPT_VAULT_KEY_WITH_HASHED_PASSWORD
+    mockRequest.command = API.ENCRYPTION_ENCRYPT_VAULT_KEY_WITH_HASHED_PASSWORD
     mockRequest.data = JSON.stringify({ hashedPassword: 'testpassword' })
 
     const mockResponse = {
@@ -470,7 +464,7 @@ describe('RPC handler', () => {
   })
 
   test('should handle ENCRYPTION_ENCRYPT_VAULT_WITH_KEY command', async () => {
-    mockRequest.command = ENCRYPTION_ENCRYPT_VAULT_WITH_KEY
+    mockRequest.command = API.ENCRYPTION_ENCRYPT_VAULT_WITH_KEY
     mockRequest.data = JSON.stringify({
       hashedPassword: 'hashedPassword',
       key: 'key'
@@ -492,7 +486,7 @@ describe('RPC handler', () => {
   })
 
   test('should handle ENCRYPTION_HASH_PASSWORD command', async () => {
-    mockRequest.command = ENCRYPTION_HASH_PASSWORD
+    mockRequest.command = API.ENCRYPTION_HASH_PASSWORD
     mockRequest.data = JSON.stringify({ password: 'testpassword' })
 
     hashPassword.mockReturnValueOnce('hashed-password')
@@ -506,7 +500,7 @@ describe('RPC handler', () => {
   })
 
   test('should handle ENCRYPTION_GET_DECRYPTION_KEY command', async () => {
-    mockRequest.command = ENCRYPTION_GET_DECRYPTION_KEY
+    mockRequest.command = API.ENCRYPTION_GET_DECRYPTION_KEY
     mockRequest.data = JSON.stringify({
       password: 'encrypted-data',
       salt: 'nonce-data'
@@ -526,7 +520,7 @@ describe('RPC handler', () => {
   })
 
   test('should handle ENCRYPTION_DECRYPT_VAULT_KEY command', async () => {
-    mockRequest.command = ENCRYPTION_DECRYPT_VAULT_KEY
+    mockRequest.command = API.ENCRYPTION_DECRYPT_VAULT_KEY
     mockRequest.data = JSON.stringify({
       ciphertext: 'encrypted-data',
       nonce: 'nonce-data',
@@ -548,7 +542,7 @@ describe('RPC handler', () => {
   })
 
   test('should handle error in ENCRYPTION_DECRYPT_VAULT_KEY command', async () => {
-    mockRequest.command = ENCRYPTION_DECRYPT_VAULT_KEY
+    mockRequest.command = API.ENCRYPTION_DECRYPT_VAULT_KEY
     mockRequest.data = JSON.stringify({
       encryptedKey: 'encrypted-data',
       password: 'testpassword'
@@ -568,7 +562,7 @@ describe('RPC handler', () => {
   })
 
   test('should handle CLOSE command', async () => {
-    mockRequest.command = CLOSE
+    mockRequest.command = API.CLOSE
 
     await handleRpcCommand(mockRequest)
 
@@ -582,7 +576,7 @@ describe('RPC handler', () => {
     const errorMessage = 'Something went wrong'
     closeAllInstances.mockRejectedValueOnce(new Error(errorMessage))
 
-    mockRequest.command = CLOSE
+    mockRequest.command = API.CLOSE
 
     await handleRpcCommand(mockRequest)
 

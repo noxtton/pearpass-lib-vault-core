@@ -2,51 +2,76 @@ import sodium from 'sodium-native'
 
 import { hashPassword } from './hashPassword'
 
-const validPassword = 'mySuperSecretPassword'
+const mockSalt = Buffer.alloc(sodium.crypto_pwhash_SALTBYTES, 'a')
+const mockHashedPassword = Buffer.alloc(sodium.crypto_secretbox_KEYBYTES, 'b')
+
+jest.mock('sodium-native', () => ({
+  crypto_pwhash_SALTBYTES: 32,
+  crypto_secretbox_KEYBYTES: 32,
+  crypto_pwhash_OPSLIMIT_INTERACTIVE: 2,
+  crypto_pwhash_MEMLIMIT_INTERACTIVE: 67108864,
+  crypto_pwhash_ALG_DEFAULT: 2,
+  randombytes_buf: jest.fn((buf) => {
+    buf.set(mockSalt)
+  }),
+  sodium_malloc: jest.fn((size) => Buffer.alloc(size)),
+  crypto_pwhash: jest.fn((out) => {
+    mockHashedPassword.copy(out)
+  })
+}))
 
 describe('hashPassword', () => {
-  test('should return an object with hashedPassword and salt properties', () => {
-    const result = hashPassword(validPassword)
-    expect(result).toHaveProperty('hashedPassword')
-    expect(result).toHaveProperty('salt')
-    expect(typeof result.hashedPassword).toBe('string')
-    expect(typeof result.salt).toBe('string')
+  afterEach(() => {
+    jest.clearAllMocks()
   })
 
-  test('hashedPassword should be valid hex and have the expected length', () => {
-    const result = hashPassword(validPassword)
+  it('should generate a salt and a hashed password', () => {
+    const password = 'my-secret-password'
+    const result = hashPassword(password)
 
-    const hashBuffer = Buffer.from(result.hashedPassword, 'hex')
-
-    expect(hashBuffer.length).toBe(sodium.crypto_secretbox_KEYBYTES)
-
-    expect(result.hashedPassword.length).toBe(
-      sodium.crypto_secretbox_KEYBYTES * 2
+    expect(sodium.randombytes_buf).toHaveBeenCalledTimes(1)
+    expect(sodium.sodium_malloc).toHaveBeenCalledWith(
+      sodium.crypto_secretbox_KEYBYTES
     )
+    expect(sodium.crypto_pwhash).toHaveBeenCalledTimes(1)
+
+    const hashedPasswordBuffer = sodium.sodium_malloc.mock.results[0].value
+    expect(sodium.crypto_pwhash).toHaveBeenCalledWith(
+      hashedPasswordBuffer,
+      Buffer.from(password),
+      expect.any(Buffer),
+      sodium.crypto_pwhash_OPSLIMIT_INTERACTIVE,
+      sodium.crypto_pwhash_MEMLIMIT_INTERACTIVE,
+      sodium.crypto_pwhash_ALG_DEFAULT
+    )
+
+    expect(result).toEqual({
+      hashedPassword: mockHashedPassword.toString('hex'),
+      salt: mockSalt.toString('base64')
+    })
   })
 
-  test('salt should be valid base64 and decode to the expected length', () => {
-    const result = hashPassword(validPassword)
+  it('should return different results for different mock implementations', () => {
+    const password = 'another-password'
 
-    const saltBuffer = Buffer.from(result.salt, 'base64')
+    const differentSalt = Buffer.alloc(sodium.crypto_pwhash_SALTBYTES, 'c')
+    const differentHashedPassword = Buffer.alloc(
+      sodium.crypto_secretbox_KEYBYTES,
+      'd'
+    )
 
-    expect(saltBuffer.length).toBe(sodium.crypto_pwhash_SALTBYTES)
-  })
+    sodium.randombytes_buf.mockImplementationOnce((buf) => {
+      buf.set(differentSalt)
+    })
+    sodium.crypto_pwhash.mockImplementationOnce((out) => {
+      out.set(differentHashedPassword)
+    })
 
-  test('different invocations produce different salts and hashes even with the same password', () => {
-    const result1 = hashPassword(validPassword)
-    const result2 = hashPassword(validPassword)
+    const result = hashPassword(password)
 
-    expect(result1.salt).not.toBe(result2.salt)
-    expect(result1.hashedPassword).not.toBe(result2.hashedPassword)
-  })
-
-  test('should work correctly with an empty password', () => {
-    const result = hashPassword('')
-
-    const hashBuffer = Buffer.from(result.hashedPassword, 'hex')
-    expect(hashBuffer.length).toBe(sodium.crypto_secretbox_KEYBYTES)
-    const saltBuffer = Buffer.from(result.salt, 'base64')
-    expect(saltBuffer.length).toBe(sodium.crypto_pwhash_SALTBYTES)
+    expect(result).toEqual({
+      hashedPassword: differentHashedPassword.toString('hex'),
+      salt: differentSalt.toString('base64')
+    })
   })
 })

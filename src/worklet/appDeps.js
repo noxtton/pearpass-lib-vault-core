@@ -2,6 +2,7 @@ import Autopass from 'autopass'
 import barePath from 'bare-path'
 import Corestore from 'corestore'
 
+import { PearPassPairer } from './pearpassPairer'
 import { isPearWorker } from './utils/isPearWorker'
 
 let STORAGE_PATH = null
@@ -16,6 +17,8 @@ let activeVaultInstance
 let isActiveVaultInitialized = false
 
 let listeningVaultId = null
+
+const pearpassPairer = new PearPassPairer()
 
 /**
  * @param {string} path
@@ -58,30 +61,6 @@ export const getVaultsInstance = () => vaultsInstance
 export const getEncryptionInstance = () => encryptionInstance
 
 /**
- * @param {string} path
- * @returns {Promise<Autopass>}
- */
-export const pairInstance = async (path, invite) => {
-  const fullPath = buildPath(path)
-
-  const store = new Corestore(fullPath)
-
-  if (!store) {
-    throw new Error('Error creating store')
-  }
-
-  const pair = Autopass.pair(store, invite)
-
-  const instance = await pair.finished()
-
-  await instance.ready()
-
-  await instance.close()
-
-  return instance.encryptionKey.toString('base64')
-}
-
-/**
  * @returns {Promise<void>}
  */
 export const closeActiveVaultInstance = async () => {
@@ -91,21 +70,6 @@ export const closeActiveVaultInstance = async () => {
 
   activeVaultInstance = null
   isActiveVaultInitialized = false
-}
-
-/**
- * @param {string} vaultId
- * @param {string} inviteKey
- * @returns {Promise<{id: string}>}
- */
-export const pairActiveVaultInstance = async (vaultId, inviteKey) => {
-  if (isActiveVaultInitialized) {
-    await closeActiveVaultInstance()
-  }
-
-  const encryptionKey = await pairInstance(`vault/${vaultId}`, inviteKey)
-
-  return encryptionKey
 }
 
 /**
@@ -373,7 +337,7 @@ export const vaultsList = async (filterKey) => {
 
   return collectValuesByFilter(
     vaultsInstance,
-    filterKey ? (key) => key.startsWith(filterKey) : undefined
+    filterKey ? (key) => key?.startsWith(filterKey) : undefined
   )
 }
 
@@ -387,7 +351,7 @@ export const activeVaultList = async (filterKey) => {
 
   return collectValuesByFilter(
     activeVaultInstance,
-    filterKey ? (key) => key.startsWith(filterKey) : undefined
+    filterKey ? (key) => key?.startsWith(filterKey) : undefined
   )
 }
 
@@ -442,14 +406,25 @@ export const deleteInvite = async () => {
 
 /**
  * @param {string} inviteCode
- * @returns {Promise<void>}
+ * @returns {Promise<{ vaultId: string, encryptionKey: string }>}
  */
-export const pair = async (inviteCode) => {
+export const pairActiveVault = async (inviteCode) => {
   const [vaultId, inviteKey] = inviteCode.split('/')
 
-  const encryptionKey = await pairActiveVaultInstance(vaultId, inviteKey)
+  if (isActiveVaultInitialized) {
+    await closeActiveVaultInstance()
+  }
+
+  const encryptionKey = await pearpassPairer.pairInstance(
+    buildPath(`vault/${vaultId}`),
+    inviteKey
+  )
 
   return { vaultId, encryptionKey }
+}
+
+export const cancelPairActiveVault = async () => {
+  await pearpassPairer.cancelPairing()
 }
 
 /**
