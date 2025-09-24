@@ -454,9 +454,9 @@ export class PearpassVaultClient extends EventEmitter {
    * Closes the vault for the active vault.
    * @returns {Promise<Object>}
    */
-  async close() {
+  async closeAllInstances() {
     return this._handleRequest({
-      command: API.CLOSE
+      command: API.CLOSE_ALL_INSTANCES
     })
   }
 
