@@ -56,7 +56,7 @@ jest.mock('../worklet/api', () => ({
     ENCRYPTION_GET_DECRYPTION_KEY: 'ENCRYPTION_GET_DECRYPTION_KEY',
     ENCRYPTION_DECRYPT_VAULT_KEY: 'ENCRYPTION_DECRYPT_VAULT_KEY',
     ENCRYPTION_CLOSE: 'ENCRYPTION_CLOSE',
-    CLOSE: 'CLOSE',
+    CLOSE_ALL_INSTANCES: 'CLOSE_ALL_INSTANCES',
     ACTIVE_VAULT_FILE_ADD: 'ACTIVE_VAULT_FILE_ADD',
     ACTIVE_VAULT_FILE_GET: 'ACTIVE_VAULT_FILE_GET',
     ACTIVE_VAULT_FILE_REMOVE: 'ACTIVE_VAULT_FILE_REMOVE'
@@ -93,7 +93,7 @@ jest.mock('../worklet/api', () => ({
     ENCRYPTION_GET_DECRYPTION_KEY: 'ENCRYPTION_GET_DECRYPTION_KEY',
     ENCRYPTION_DECRYPT_VAULT_KEY: 'ENCRYPTION_DECRYPT_VAULT_KEY',
     ENCRYPTION_CLOSE: 'ENCRYPTION_CLOSE',
-    CLOSE: 'CLOSE',
+    CLOSE_ALL_INSTANCES: 'CLOSE_ALL_INSTANCES',
     ACTIVE_VAULT_FILE_ADD: 'ACTIVE_VAULT_FILE_ADD',
     ACTIVE_VAULT_FILE_GET: 'ACTIVE_VAULT_FILE_GET',
     ACTIVE_VAULT_FILE_REMOVE: 'ACTIVE_VAULT_FILE_REMOVE'
@@ -182,7 +182,7 @@ describe('PearpassVaultClient', () => {
       })
     ).resolves.toBe('mockData')
     await expect(client.encryptionClose()).resolves.toBe('mockData')
-    await expect(client.close()).resolves.toBe('mockData')
+    await expect(client.closeAllInstances()).resolves.toBe('mockData')
     await expect(client.activeVaultRemoveFile('key')).resolves.toBe('mockData')
   })
 

@@ -561,8 +561,8 @@ describe('RPC handler', () => {
     )
   })
 
-  test('should handle CLOSE command', async () => {
-    mockRequest.command = API.CLOSE
+  test('should handle CLOSE_ALL_INSTANCES command', async () => {
+    mockRequest.command = API.CLOSE_ALL_INSTANCES
 
     await handleRpcCommand(mockRequest)
 
@@ -572,11 +572,11 @@ describe('RPC handler', () => {
     )
   })
 
-  test('should handle error in CLOSE command', async () => {
+  test('should handle error in CLOSE_ALL_INSTANCES command', async () => {
     const errorMessage = 'Something went wrong'
     closeAllInstances.mockRejectedValueOnce(new Error(errorMessage))
 
-    mockRequest.command = API.CLOSE
+    mockRequest.command = API.CLOSE_ALL_INSTANCES
 
     await handleRpcCommand(mockRequest)
 
