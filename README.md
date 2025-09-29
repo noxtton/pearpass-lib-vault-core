@@ -96,7 +96,7 @@ const github = await client.activeVaultGet(`vault/${vaultId}`);
 console.log(githubPassword);
 
 // Close connections when done
-await client.close();
+await client.closeAllInstances();
 ```
 
 ## Dependencies

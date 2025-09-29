@@ -1,6 +1,6 @@
 {
   "name": "pearpass-lib-vault-mobile",
-  "version": "0.0.57",
+  "version": "0.0.58",
   "type": "module",
   "description": "A bare wrapper for vault management library",
   "main": "src/index.js",
@@ -29,7 +29,9 @@
     "@babel/core": "7.26.10",
     "@babel/preset-env": "7.26.9",
     "babel-jest": "29.7.0",
-    "jest": "29.7.0",
+    "jest": "29.7.0"
+  },
+  "peerDependencies": {
     "tether-dev-docs": "0.0.x"
   }
 }

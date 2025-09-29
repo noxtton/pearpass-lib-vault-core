@@ -577,7 +577,7 @@ export const handleRpcCommand = async (req) => {
 
       break
 
-    case API.CLOSE:
+    case API.CLOSE_ALL_INSTANCES:
       try {
         await closeAllInstances()
 
@@ -605,32 +605,31 @@ export const handleRpcCommand = async (req) => {
 const ipc = isPearWorker() ? Pear.worker.pipe() : BareKit.IPC
 
 // workaround for reusing the handleRpcCommand function with the autofill extension
-if(!isPearWorker()) {
+if (!isPearWorker()) {
   BareKit.IPC.on('data', async (buffer) => {
-    const rawData = buffer.toString('utf8');
-    const isExtension = rawData.includes('"source":"ios-extension"');
+    const rawData = buffer.toString('utf8')
+    const isExtension = rawData.includes('"source":"ios-extension"')
 
     // If the message is from the extension, handle it
-    if(isExtension) {
+    if (isExtension) {
       try {
-        const {command, data} = JSON.parse(rawData);
-        workletLogger.log('Received message:', {command, data});
-    
+        const { command, data } = JSON.parse(rawData)
+        workletLogger.log('Received message:', { command, data })
+
         const req = {
           command: command,
           data: JSON.stringify(data),
-          reply: data => {
+          reply: (data) => {
             BareKit.IPC.write(data)
           },
           createRequestStream: () => {},
           createResponseStream: () => {},
-          send: () => {},
+          send: () => {}
         }
-      
+
         await handleRpcCommand(req)
-          
       } catch (error) {
-        workletLogger.error('Error receiving message:', error);
+        workletLogger.error('Error receiving message:', error)
       }
     }
   })
