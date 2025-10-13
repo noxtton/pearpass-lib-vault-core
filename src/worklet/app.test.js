@@ -21,13 +21,20 @@ import {
   getIsActiveVaultInitialized,
   vaultsGet,
   closeAllInstances,
-  cancelPairActiveVault
+  cancelPairActiveVault,
+  getBlindMirrors,
+  addBlindMirrors,
+  removeBlindMirror,
+  addDefaultBlindMirrors,
+  removeAllBlindMirrors,
+  restartActiveVault
 } from './appDeps'
 import { decryptVaultKey } from './decryptVaultKey'
 import { encryptVaultKeyWithHashedPassword } from './encryptVaultKeyWithHashedPassword'
 import { encryptVaultWithKey } from './encryptVaultWithKey'
 import { getDecryptionKey } from './getDecryptionKey'
 import { hashPassword } from './hashPassword'
+import { withMirrorValidation } from '../middleware/validateMirrorKeyViaDHT'
 
 jest.mock('./decryptVaultKey', () => ({
   decryptVaultKey: jest.fn()
@@ -55,9 +62,18 @@ jest.mock('framed-stream', () =>
     create: jest.fn()
   }))
 )
-jest.mock('./utils/isPearWorker', () => ({
-  isPearWorker: jest.fn().mockReturnValue(false)
-}))
+jest.mock('./utils/isPearWorker', () => {
+  global.Pear = {
+    worker: {
+      pipe: jest.fn().mockReturnValue({
+        on: jest.fn(),
+        off: jest.fn(),
+        emit: jest.fn()
+      })
+    }
+  }
+  return { isPearWorker: jest.fn().mockReturnValue(true) }
+})
 jest.mock('./utils/workletLogger', () => ({
   workletLogger: {
     log: jest.fn(),
@@ -96,7 +112,17 @@ jest.mock('./appDeps', () => ({
   getIsVaultsInitialized: jest.fn().mockReturnValue(false),
   getIsActiveVaultInitialized: jest.fn().mockReturnValue(false),
   getIsEncryptionInitialized: jest.fn().mockReturnValue(false),
-  closeAllInstances: jest.fn().mockResolvedValue()
+  closeAllInstances: jest.fn().mockResolvedValue(),
+  getBlindMirrors: jest.fn().mockResolvedValue([]),
+  addBlindMirrors: jest.fn().mockResolvedValue(),
+  removeBlindMirror: jest.fn().mockResolvedValue(),
+  addDefaultBlindMirrors: jest.fn().mockResolvedValue(),
+  removeAllBlindMirrors: jest.fn().mockResolvedValue(),
+  restartActiveVault: jest.fn().mockResolvedValue()
+}))
+
+jest.mock('../middleware/validateMirrorKeyViaDHT', () => ({
+  withMirrorValidation: jest.fn()
 }))
 
 describe('RPC handler', () => {
@@ -584,6 +610,130 @@ describe('RPC handler', () => {
       JSON.stringify({
         error: `Error closing encryption: Error: ${errorMessage}`
       })
+    )
+  })
+
+  test('should handle BLIND_MIRRORS_GET', async () => {
+    getBlindMirrors.mockResolvedValueOnce([{ key: 'a' }])
+
+    mockRequest.command = API.BLIND_MIRRORS_GET
+
+    await handleRpcCommand(mockRequest)
+
+    expect(getBlindMirrors).toHaveBeenCalled()
+    expect(mockRequest.reply).toHaveBeenCalledWith(
+      JSON.stringify({ data: [{ key: 'a' }] })
+    )
+  })
+
+  test('should handle BLIND_MIRRORS_ADD with mirror validation and restart', async () => {
+    const mockSafeAdd = jest.fn().mockResolvedValue()
+    withMirrorValidation.mockReturnValue(mockSafeAdd)
+
+    mockRequest.command = API.BLIND_MIRRORS_ADD
+    mockRequest.data = JSON.stringify({ blindMirrors: ['k1', 'k2'] })
+
+    await handleRpcCommand(mockRequest)
+
+    expect(withMirrorValidation).toHaveBeenCalledWith(addBlindMirrors)
+    expect(mockSafeAdd).toHaveBeenCalledWith(['k1', 'k2'])
+    expect(restartActiveVault).toHaveBeenCalled()
+    expect(mockRequest.reply).toHaveBeenCalledWith(
+      JSON.stringify({ success: true })
+    )
+  })
+
+  test('should handle BLIND_MIRRORS_ADD with empty mirrors array', async () => {
+    const mockSafeAdd = jest.fn().mockResolvedValue()
+    withMirrorValidation.mockReturnValue(mockSafeAdd)
+
+    mockRequest.command = API.BLIND_MIRRORS_ADD
+    mockRequest.data = JSON.stringify({})
+
+    await handleRpcCommand(mockRequest)
+
+    expect(withMirrorValidation).toHaveBeenCalledWith(addBlindMirrors)
+    expect(mockSafeAdd).toHaveBeenCalledWith([])
+    expect(restartActiveVault).toHaveBeenCalled()
+    expect(mockRequest.reply).toHaveBeenCalledWith(
+      JSON.stringify({ success: true })
+    )
+  })
+
+  test('should handle BLIND_MIRRORS_ADD when mirror validation fails', async () => {
+    const mockSafeAdd = jest
+      .fn()
+      .mockRejectedValue(new Error('No reachable mirrors'))
+    withMirrorValidation.mockReturnValue(mockSafeAdd)
+
+    mockRequest.command = API.BLIND_MIRRORS_ADD
+    mockRequest.data = JSON.stringify({ blindMirrors: ['invalid-key'] })
+
+    await handleRpcCommand(mockRequest)
+
+    expect(withMirrorValidation).toHaveBeenCalledWith(addBlindMirrors)
+    expect(mockSafeAdd).toHaveBeenCalledWith(['invalid-key'])
+    expect(restartActiveVault).not.toHaveBeenCalled()
+    expect(mockRequest.reply).toHaveBeenCalledWith(
+      JSON.stringify({
+        error: 'Error adding blind mirrors: Error: No reachable mirrors'
+      })
+    )
+  })
+
+  test('should handle BLIND_MIRRORS_ADD when addBlindMirrors throws error', async () => {
+    const mockSafeAdd = jest.fn().mockRejectedValue(new Error('Database error'))
+    withMirrorValidation.mockReturnValue(mockSafeAdd)
+
+    mockRequest.command = API.BLIND_MIRRORS_ADD
+    mockRequest.data = JSON.stringify({ blindMirrors: ['k1'] })
+
+    await handleRpcCommand(mockRequest)
+
+    expect(withMirrorValidation).toHaveBeenCalledWith(addBlindMirrors)
+    expect(mockSafeAdd).toHaveBeenCalledWith(['k1'])
+    expect(restartActiveVault).not.toHaveBeenCalled()
+    expect(mockRequest.reply).toHaveBeenCalledWith(
+      JSON.stringify({
+        error: 'Error adding blind mirrors: Error: Database error'
+      })
+    )
+  })
+
+  test('should handle BLIND_MIRROR_REMOVE and restart', async () => {
+    mockRequest.command = API.BLIND_MIRROR_REMOVE
+    mockRequest.data = JSON.stringify({ key: 'k2' })
+
+    await handleRpcCommand(mockRequest)
+
+    expect(removeBlindMirror).toHaveBeenCalledWith('k2')
+    expect(restartActiveVault).toHaveBeenCalled()
+    expect(mockRequest.reply).toHaveBeenCalledWith(
+      JSON.stringify({ success: true })
+    )
+  })
+
+  test('should handle BLIND_MIRRORS_ADD_DEFAULTS and restart', async () => {
+    mockRequest.command = API.BLIND_MIRRORS_ADD_DEFAULTS
+
+    await handleRpcCommand(mockRequest)
+
+    expect(addDefaultBlindMirrors).toHaveBeenCalled()
+    expect(restartActiveVault).toHaveBeenCalled()
+    expect(mockRequest.reply).toHaveBeenCalledWith(
+      JSON.stringify({ success: true })
+    )
+  })
+
+  test('should handle BLIND_MIRRORS_REMOVE_ALL and restart', async () => {
+    mockRequest.command = API.BLIND_MIRRORS_REMOVE_ALL
+
+    await handleRpcCommand(mockRequest)
+
+    expect(removeAllBlindMirrors).toHaveBeenCalled()
+    expect(restartActiveVault).toHaveBeenCalled()
+    expect(mockRequest.reply).toHaveBeenCalledWith(
+      JSON.stringify({ success: true })
     )
   })
 })

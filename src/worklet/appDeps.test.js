@@ -19,7 +19,10 @@ jest.mock('autopass', () => {
       close: jest.fn().mockResolvedValue(),
       add: jest.fn().mockResolvedValue(),
       remove: jest.fn().mockResolvedValue(),
-      get: jest.fn().mockResolvedValue({ id: 'vault-id' }),
+      get: jest.fn().mockResolvedValue({
+        value: JSON.stringify({ id: 'vault-id' }),
+        file: Buffer.from('test file content')
+      }),
       createInvite: jest.fn().mockResolvedValue('invite-code'),
       encryptionKey: {
         toString: jest.fn().mockReturnValue('encryption-key')
@@ -46,7 +49,10 @@ jest.mock('autopass', () => {
     close: jest.fn().mockResolvedValue(),
     add: jest.fn().mockResolvedValue(),
     remove: jest.fn().mockResolvedValue(),
-    get: jest.fn().mockResolvedValue(JSON.stringify({ id: 'vault-id' })),
+    get: jest.fn().mockResolvedValue({
+      value: JSON.stringify({ id: 'vault-id' }),
+      file: Buffer.from('test file content')
+    }),
     createInvite: jest.fn().mockResolvedValue('invite-code'),
     deleteInvite: jest.fn().mockResolvedValue(),
     encryptionKey: {
@@ -180,7 +186,10 @@ describe('appDeps module functions (excluding encryption)', () => {
           close: jest.fn().mockResolvedValue(),
           add: jest.fn().mockResolvedValue(),
           remove: jest.fn().mockResolvedValue(),
-          get: jest.fn().mockResolvedValue({ id: 'vault-id' }),
+          get: jest.fn().mockResolvedValue({
+            value: JSON.stringify({ id: 'vault-id' }),
+            file: Buffer.from('test file content')
+          }),
           createInvite: jest.fn().mockResolvedValue('invite-code'),
           removeAllListeners: jest.fn(),
           on: jest.fn(),
@@ -217,7 +226,8 @@ describe('appDeps module functions (excluding encryption)', () => {
       await appDeps.activeVaultAdd('key1', { data: 'test' })
       expect(mockInstance.add).toHaveBeenCalledWith(
         'key1',
-        JSON.stringify({ data: 'test' })
+        JSON.stringify({ data: 'test' }),
+        undefined
       )
     })
 
@@ -225,7 +235,8 @@ describe('appDeps module functions (excluding encryption)', () => {
       await appDeps.setStoragePath('file://base')
       await appDeps.vaultsInit('vault1')
       const result = await appDeps.vaultsGet('key4')
-      expect(result).toEqual({ id: 'vault-id' })
+      expect(result.id).toEqual('vault-id')
+      expect(result.file).toEqual(Buffer.from('test file content'))
     })
 
     test('vaultsAdd calls add on vaultsInstance', async () => {
@@ -259,7 +270,8 @@ describe('appDeps module functions (excluding encryption)', () => {
       await appDeps.setStoragePath('file://base')
       await appDeps.initActiveVaultInstance('vault1')
       const result = await appDeps.activeVaultGet('key4')
-      expect(result).toEqual({ id: 'vault-id' })
+      expect(result.id).toEqual('vault-id')
+      expect(result.file).toEqual(Buffer.from('test file content'))
     })
 
     test('createInvite returns correct invite string', async () => {
@@ -317,15 +329,104 @@ describe('appDeps module functions (excluding encryption)', () => {
     })
   })
 
+  describe('Blind mirrors management', () => {
+    beforeEach(async () => {
+      jest.spyOn(appDeps, 'initInstance').mockResolvedValue({
+        ready: jest.fn().mockResolvedValue(),
+        close: jest.fn().mockResolvedValue()
+      })
+      await appDeps.setStoragePath('file://base')
+      await appDeps.initActiveVaultInstance('vault1')
+
+      const inst = appDeps.getActiveVaultInstance()
+      inst.getMirror = jest.fn().mockResolvedValue([{ key: 'a' }, { key: 'b' }])
+      inst.addMirror = jest.fn().mockResolvedValue()
+      inst.removeMirror = jest.fn().mockResolvedValue()
+    })
+
+    afterEach(() => {
+      jest.restoreAllMocks()
+    })
+
+    test('getBlindMirrors returns mirrors from instance', async () => {
+      const res = await appDeps.getBlindMirrors()
+      expect(res).toEqual([{ key: 'a' }, { key: 'b' }])
+    })
+
+    test('addBlindMirrors adds provided keys', async () => {
+      const inst = appDeps.getActiveVaultInstance()
+      await appDeps.addBlindMirrors(['k1', 'k2'])
+      expect(inst.addMirror).toHaveBeenCalledWith('k1')
+      expect(inst.addMirror).toHaveBeenCalledWith('k2')
+    })
+
+    test('removeBlindMirror removes key', async () => {
+      const inst = appDeps.getActiveVaultInstance()
+      await appDeps.removeBlindMirror('k1')
+      expect(inst.removeMirror).toHaveBeenCalledWith('k1')
+    })
+
+    test('addDefaultBlindMirrors adds defaults', async () => {
+      const inst = appDeps.getActiveVaultInstance()
+      await appDeps.addDefaultBlindMirrors()
+      expect(inst.addMirror).toHaveBeenCalled()
+    })
+
+    test('removeAllBlindMirrors removes all current mirrors', async () => {
+      const inst = appDeps.getActiveVaultInstance()
+      inst.getMirror = jest
+        .fn()
+        .mockResolvedValue([{ key: 'a' }, { key: 'b' }, { key: 'c' }])
+
+      await appDeps.removeAllBlindMirrors()
+      expect(inst.removeMirror).toHaveBeenCalledWith('a')
+      expect(inst.removeMirror).toHaveBeenCalledWith('b')
+      expect(inst.removeMirror).toHaveBeenCalledWith('c')
+    })
+  })
+
+  describe('restartActiveVault', () => {
+    test('restarts instance when same vault is active', async () => {
+      jest.spyOn(appDeps, 'initInstance').mockResolvedValue({
+        ready: jest.fn().mockResolvedValue(),
+        close: jest.fn().mockResolvedValue(),
+        removeAllListeners: jest.fn(),
+        on: jest.fn()
+      })
+
+      await appDeps.setStoragePath('file://base')
+      await appDeps.initActiveVaultInstance('vaultX', 'encKey')
+
+      const onUpdate = jest.fn()
+      await appDeps.initListener({ vaultId: 'vaultX', onUpdate })
+
+      await appDeps.restartActiveVault()
+      expect(appDeps.getIsActiveVaultInitialized()).toBe(true)
+    })
+
+    test('throws if no previous vault to restart', async () => {
+      await appDeps.setStoragePath('file://base')
+      await appDeps.closeAllInstances()
+      await expect(appDeps.restartActiveVault()).rejects.toThrow(
+        '[restartActiveVault]: No previous active vault to restart'
+      )
+    })
+  })
   describe('initListener', () => {
     test('initListener should not reinitialize if vaultId matches previous value', async () => {
       await appDeps.setStoragePath('file://base')
       await appDeps.initActiveVaultInstance('vault1')
-      const dummy = await appDeps.initInstance()
-      dummy.removeAllListeners = jest.fn()
-      dummy.on = jest.fn()
-      await appDeps.initListener('vault1')
-      expect(dummy.removeAllListeners).not.toHaveBeenCalled()
+
+      const active = appDeps.getActiveVaultInstance()
+      const removeAllListenersSpy = jest.spyOn(active, 'removeAllListeners')
+
+      const onUpdate = jest.fn()
+      await appDeps.initListener({ vaultId: 'vault1', onUpdate })
+
+      removeAllListenersSpy.mockClear()
+
+      await appDeps.initListener({ vaultId: 'vault1', onUpdate })
+      expect(removeAllListenersSpy).not.toHaveBeenCalled()
     })
   })
 
@@ -338,7 +439,7 @@ describe('appDeps module functions (excluding encryption)', () => {
         }
       )
     })
-    test('closeAllInstances closes all initialized instances', async () => {
+    test('closeAllInstances closes all initialized instances and clears restart cache', async () => {
       await appDeps.setStoragePath('file://base')
       await appDeps.initActiveVaultInstance('vault1')
       await appDeps.vaultsInit('vault1')
@@ -361,6 +462,10 @@ describe('appDeps module functions (excluding encryption)', () => {
       expect(appDeps.getIsActiveVaultInitialized()).toBe(false)
       expect(appDeps.getIsVaultsInitialized()).toBe(false)
       expect(appDeps.getIsEncryptionInitialized()).toBe(false)
+
+      await expect(appDeps.restartActiveVault()).rejects.toThrow(
+        '[restartActiveVault]: No previous active vault to restart'
+      )
     })
   })
 })
