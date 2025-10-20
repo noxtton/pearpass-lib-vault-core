@@ -330,6 +330,60 @@ export class PearpassVaultClient extends EventEmitter {
   }
 
   /**
+   * Get blind mirrors for the active vault
+   * @returns {Promise<Array<string>>}
+   */
+  async getBlindMirrors() {
+    return this._handleRequest({
+      command: API.BLIND_MIRRORS_GET
+    })
+  }
+
+  /**
+   * Add blind mirrors to the active vault
+   * @param {Array<string>} blindMirrors
+   * @returns {Promise<void>}
+   */
+  async addBlindMirrors(blindMirrors) {
+    return this._handleRequest({
+      command: API.BLIND_MIRRORS_ADD,
+      data: { blindMirrors }
+    })
+  }
+
+  /**
+   * Remove a blind mirror from the active vault
+   * @param {string} key
+   * @returns {Promise<void>}
+   */
+  async removeBlindMirror(key) {
+    return this._handleRequest({
+      command: API.BLIND_MIRROR_REMOVE,
+      data: { key }
+    })
+  }
+
+  /**
+   * Add default blind mirrors
+   * @returns {Promise<void>}
+   */
+  async addDefaultBlindMirrors() {
+    return this._handleRequest({
+      command: API.BLIND_MIRRORS_ADD_DEFAULTS
+    })
+  }
+
+  /**
+   * Remove all blind mirrors
+   * @returns {Promise<void>}
+   */
+  async removeAllBlindMirrors() {
+    return this._handleRequest({
+      command: API.BLIND_MIRRORS_REMOVE_ALL
+    })
+  }
+
+  /**
    * Initializes the encryption for the active vault.
    * @returns {Promise<Object>}
    */
@@ -452,11 +506,11 @@ export class PearpassVaultClient extends EventEmitter {
 
   /**
    * Closes the vault for the active vault.
-   * @returns {Promise<Object>}
+   * @returns {Promise<void>}
    */
-  async close() {
+  async closeAllInstances() {
     return this._handleRequest({
-      command: API.CLOSE
+      command: API.CLOSE_ALL_INSTANCES
     })
   }
 
