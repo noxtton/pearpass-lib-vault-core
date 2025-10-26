@@ -3,6 +3,7 @@ import barePath from 'bare-path'
 import Corestore from 'corestore'
 
 import { PearPassPairer } from './pearpassPairer'
+import { defaultMirrorKeys } from '../constants/defaultBlindMirrors'
 import { isPearWorker } from './utils/isPearWorker'
 
 let STORAGE_PATH = null
@@ -17,6 +18,9 @@ let activeVaultInstance
 let isActiveVaultInitialized = false
 
 let listeningVaultId = null
+let lastActiveVaultId = null
+let lastActiveVaultEncryptionKey = null
+let lastOnUpdateCallback = null
 
 const pearpassPairer = new PearPassPairer()
 
@@ -61,15 +65,31 @@ export const getVaultsInstance = () => vaultsInstance
 export const getEncryptionInstance = () => encryptionInstance
 
 /**
+ * @returns {void}
+ */
+const clearRestartCache = () => {
+  lastActiveVaultId = null
+  lastActiveVaultEncryptionKey = null
+  lastOnUpdateCallback = null
+}
+
+/**
+ * @param {{ clearRestartCache?: boolean }} [options]
  * @returns {Promise<void>}
  */
-export const closeActiveVaultInstance = async () => {
+export const closeActiveVaultInstance = async (options) => {
   activeVaultInstance.removeAllListeners()
 
   await activeVaultInstance.close()
 
   activeVaultInstance = null
   isActiveVaultInitialized = false
+  // reset listener marker so future initListener can rebind
+  listeningVaultId = null
+
+  if (options?.clearRestartCache) {
+    clearRestartCache()
+  }
 }
 
 /**
@@ -159,6 +179,10 @@ export const initActiveVaultInstance = async (id, encryptionKey) => {
 
   isActiveVaultInitialized = true
 
+  // cache last init params for restart
+  lastActiveVaultId = id
+  lastActiveVaultEncryptionKey = encryptionKey
+
   return activeVaultInstance
 }
 
@@ -195,8 +219,8 @@ export const encryptionGet = async (key) => {
   }
 
   const res = await encryptionInstance.get(key)
-
-  const parsedRes = JSON.parse(res)
+  const { value } = res || {}
+  const parsedRes = value ? JSON.parse(value) : null
 
   return parsedRes
 }
@@ -235,18 +259,17 @@ export const closeVaultsInstance = async () => {
 }
 
 /**
- * @param {{
- *  id: string,
- *  vaultId: string,
- * }} record
+ * @param {string} key
+ * @param {any} data
+ * @param {Buffer} file
  * @returns {Promise<void>}
  */
-export const activeVaultAdd = async (key, data) => {
+export const activeVaultAdd = async (key, data, file) => {
   if (!isActiveVaultInitialized) {
     throw new Error('Vault not initialised')
   }
 
-  await activeVaultInstance.add(key, JSON.stringify(data))
+  await activeVaultInstance.add(key, JSON.stringify(data), file)
 }
 
 /**
@@ -260,9 +283,16 @@ export const vaultsGet = async (key) => {
 
   const res = await vaultsInstance.get(key)
 
-  const parsedRes = JSON.parse(res)
+  const { value, file } = res || {}
+  const parsedValue = JSON.parse(value)
 
-  return parsedRes
+  if (file) {
+    Object.defineProperty(parsedValue, 'file', {
+      value: file,
+      enumerable: true
+    })
+  }
+  return parsedValue
 }
 
 /**
@@ -280,27 +310,15 @@ export const vaultsAdd = async (key, data) => {
 
 /**
  * @param {string} key
- * @param {any} data
- * @returns {Promise<void>}
- */
-export const activeVaultAddFile = async (key, buffer) => {
-  if (!isActiveVaultInitialized) {
-    throw new Error('Vault not initialised')
-  }
-
-  await activeVaultInstance.addFile(key, buffer)
-}
-
-/**
- * @param {string} key
- * @returns {Promise<void>}
+ * @returns {Promise<Buffer|null>}
  */
 export const activeVaultGetFile = async (key) => {
   if (!isActiveVaultInitialized) {
     throw new Error('Vault not initialised')
   }
 
-  return activeVaultInstance.getFile(key)
+  const res = await activeVaultInstance.get(key)
+  return res?.file || null
 }
 
 /**
@@ -366,9 +384,16 @@ export const activeVaultGet = async (key) => {
 
   const res = await activeVaultInstance.get(key)
 
-  const parsedRes = JSON.parse(res)
+  const { value, file } = res || {}
+  const parsedValue = JSON.parse(value)
 
-  return parsedRes
+  if (file) {
+    Object.defineProperty(parsedValue, 'file', {
+      value: file,
+      enumerable: true
+    })
+  }
+  return parsedValue
 }
 
 /**
@@ -378,8 +403,8 @@ export const createInvite = async () => {
   await activeVaultInstance.deleteInvite()
   const inviteCode = await activeVaultInstance.createInvite()
 
-  const vault = await activeVaultInstance.get('vault')
-
+  const response = await activeVaultInstance.get('vault')
+  const { value: vault } = response || {}
   if (!vault) {
     throw new Error('Vault not found')
   }
@@ -397,7 +422,8 @@ export const createInvite = async () => {
 export const deleteInvite = async () => {
   await activeVaultInstance.deleteInvite()
 
-  const vault = await activeVaultInstance.get('vault')
+  const response = await activeVaultInstance.get('vault')
+  const { value: vault } = response || {}
 
   if (!vault) {
     throw new Error('Vault not found')
@@ -445,6 +471,29 @@ export const initListener = async ({ vaultId, onUpdate }) => {
   })
 
   listeningVaultId = vaultId
+  lastOnUpdateCallback = onUpdate
+}
+
+/**
+ * @returns {Promise<void>}
+ */
+export const restartActiveVault = async () => {
+  if (!lastActiveVaultId) {
+    throw new Error('[restartActiveVault]: No previous active vault to restart')
+  }
+
+  if (isActiveVaultInitialized) {
+    await closeActiveVaultInstance()
+  }
+
+  await initActiveVaultInstance(lastActiveVaultId, lastActiveVaultEncryptionKey)
+
+  if (lastOnUpdateCallback) {
+    await initListener({
+      vaultId: lastActiveVaultId,
+      onUpdate: lastOnUpdateCallback
+    })
+  }
 }
 
 /**
@@ -466,4 +515,86 @@ export const closeAllInstances = async () => {
   }
 
   await Promise.all(closeTasks)
+  clearRestartCache()
+}
+
+/**
+ * Blind mirrors management
+ */
+
+/**
+ * @returns {Promise<Array<string>>}
+ */
+export const getBlindMirrors = async () => {
+  if (!isActiveVaultInitialized) {
+    throw new Error('[getBlindMirrors]: Vault not initialised')
+  }
+
+  const mirrors = await activeVaultInstance.getMirror()
+  return Array.isArray(mirrors) ? mirrors : []
+}
+
+/**
+ * @param {Array<string>} mirrors
+ * @returns {Promise<void>}
+ */
+export const addBlindMirrors = async (mirrors) => {
+  if (!isActiveVaultInitialized) {
+    throw new Error('[addBlindMirrors]: Vault not initialised')
+  }
+
+  if (!Array.isArray(mirrors) || mirrors.length === 0) {
+    throw new Error('[addBlindMirrors]: No mirrors provided')
+  }
+
+  await Promise.all(
+    mirrors.map((mirror) => activeVaultInstance.addMirror(mirror))
+  )
+}
+
+/**
+ * @returns {Promise<void>}
+ */
+export const removeBlindMirror = async (key) => {
+  if (!isActiveVaultInitialized) {
+    throw new Error('[removeBlindMirror]: Vault not initialised')
+  }
+
+  if (!key) {
+    throw new Error('[removeBlindMirror]: mirror key not provided!')
+  }
+
+  await activeVaultInstance.removeMirror(key)
+}
+
+/**
+ * @returns {Promise<void>}
+ */
+export const addDefaultBlindMirrors = async () => {
+  if (!isActiveVaultInitialized) {
+    throw new Error('[addDefaultBlindMirrors]: Vault not initialised')
+  }
+
+  await Promise.all(
+    defaultMirrorKeys.map((key) => activeVaultInstance.addMirror(key))
+  )
+}
+
+/**
+ * Remove all blind mirrors from the active vault
+ * @returns {Promise<void>}
+ */
+export const removeAllBlindMirrors = async () => {
+  if (!isActiveVaultInitialized) {
+    throw new Error('[removeAllBlindMirrors]: Vault not initialised')
+  }
+
+  const currentMirrors = await activeVaultInstance.getMirror()
+  const currentKeys = (Array.isArray(currentMirrors) ? currentMirrors : []).map(
+    (m) => m?.key
+  )
+
+  await Promise.all(
+    currentKeys.map((key) => activeVaultInstance.removeMirror(key))
+  )
 }

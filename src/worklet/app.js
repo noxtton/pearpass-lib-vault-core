@@ -4,7 +4,6 @@ import FramedStream from 'framed-stream'
 import { API, API_BY_VALUE } from './api'
 import {
   activeVaultAdd,
-  activeVaultAddFile,
   activeVaultGet,
   activeVaultGetFile,
   activeVaultList,
@@ -25,6 +24,12 @@ import {
   initListener,
   pairActiveVault,
   cancelPairActiveVault,
+  getBlindMirrors,
+  addBlindMirrors,
+  removeBlindMirror,
+  addDefaultBlindMirrors,
+  removeAllBlindMirrors,
+  restartActiveVault,
   setStoragePath,
   vaultRemove,
   vaultsAdd,
@@ -37,6 +42,8 @@ import { encryptVaultKeyWithHashedPassword } from './encryptVaultKeyWithHashedPa
 import { encryptVaultWithKey } from './encryptVaultWithKey'
 import { getDecryptionKey } from './getDecryptionKey'
 import { hashPassword } from './hashPassword'
+import { withMirrorValidation } from '../middleware/validateMirrorKeyViaDHT'
+import { destroySharedDHT } from './utils/dht'
 import { receiveFileStream } from '../utils/recieveFileStream'
 import { sendFileStream } from '../utils/sendFileStream'
 import { isPearWorker } from './utils/isPearWorker'
@@ -141,7 +148,7 @@ export const handleRpcCommand = async (req) => {
 
         const { buffer, metaData } = await receiveFileStream(stream)
 
-        await activeVaultAddFile(metaData.key, buffer)
+        await activeVaultAdd(metaData.key, {}, buffer)
 
         workletLogger.log({
           stream: `Received stream data of size: ${buffer.length}`,
@@ -580,12 +587,93 @@ export const handleRpcCommand = async (req) => {
     case API.CLOSE_ALL_INSTANCES:
       try {
         await closeAllInstances()
+        await destroySharedDHT()
 
         req.reply(JSON.stringify({ success: true }))
       } catch (error) {
         req.reply(
           JSON.stringify({
             error: `Error closing encryption: ${error}`
+          })
+        )
+      }
+
+      break
+
+    case API.BLIND_MIRRORS_GET:
+      try {
+        const mirrors = await getBlindMirrors()
+
+        req.reply(JSON.stringify({ data: mirrors }))
+      } catch (error) {
+        req.reply(
+          JSON.stringify({
+            error: `Error getting blind mirrors: ${error}`
+          })
+        )
+      }
+
+      break
+
+    case API.BLIND_MIRRORS_ADD:
+      try {
+        const safeAdd = withMirrorValidation(addBlindMirrors)
+        await safeAdd(requestData?.blindMirrors || [])
+        await restartActiveVault()
+
+        req.reply(JSON.stringify({ success: true }))
+      } catch (error) {
+        req.reply(
+          JSON.stringify({
+            error: `Error adding blind mirrors: ${error}`
+          })
+        )
+      }
+
+      break
+
+    case API.BLIND_MIRROR_REMOVE:
+      try {
+        await removeBlindMirror(requestData?.key)
+        await restartActiveVault()
+
+        req.reply(JSON.stringify({ success: true }))
+      } catch (error) {
+        req.reply(
+          JSON.stringify({
+            error: `Error removing blind mirrors: ${error}`
+          })
+        )
+      }
+
+      break
+
+    case API.BLIND_MIRRORS_ADD_DEFAULTS:
+      try {
+        await addDefaultBlindMirrors()
+        await restartActiveVault()
+
+        req.reply(JSON.stringify({ success: true }))
+      } catch (error) {
+        req.reply(
+          JSON.stringify({
+            error: `Error adding default blind mirrors: ${error}`
+          })
+        )
+      }
+
+      break
+
+    case API.BLIND_MIRRORS_REMOVE_ALL:
+      try {
+        await removeAllBlindMirrors()
+        await restartActiveVault()
+
+        req.reply(JSON.stringify({ success: true }))
+      } catch (error) {
+        req.reply(
+          JSON.stringify({
+            error: `Error removing all blind mirrors: ${error}`
           })
         )
       }
@@ -635,10 +723,16 @@ if (!isPearWorker()) {
   })
 }
 
-// eslint-disable-next-line no-undef
-ipc.on('close', () => Bare.exit(0))
+ipc.on('close', async () => {
+  await destroySharedDHT()
+  // eslint-disable-next-line no-undef
+  Bare.exit(0)
+})
 
-// eslint-disable-next-line no-undef
-ipc.on('end', () => Bare.exit(0))
+ipc.on('end', async () => {
+  await destroySharedDHT()
+  // eslint-disable-next-line no-undef
+  Bare.exit(0)
+})
 
 export const rpc = new RPC(new FramedStream(ipc), handleRpcCommand)
