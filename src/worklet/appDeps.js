@@ -441,12 +441,16 @@ export const pairActiveVault = async (inviteCode) => {
     await closeActiveVaultInstance()
   }
 
-  const encryptionKey = await pearpassPairer.pairInstance(
-    buildPath(`vault/${vaultId}`),
-    inviteKey
-  )
+  try {
+    const encryptionKey = await pearpassPairer.pairInstance(
+      buildPath(`vault/${vaultId}`),
+      inviteKey
+    )
 
-  return { vaultId, encryptionKey }
+    return { vaultId, encryptionKey }
+  } catch (error) {
+    throw new Error(`Pairing failed: ${error.message}`)
+  }
 }
 
 export const cancelPairActiveVault = async () => {
