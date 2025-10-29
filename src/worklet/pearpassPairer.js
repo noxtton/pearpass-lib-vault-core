@@ -16,17 +16,22 @@ export class PearPassPairer {
       throw new Error('Error creating store')
     }
 
-    const pair = Autopass.pair(this.store, invite)
+    try {
+      const pair = Autopass.pair(this.store, invite)
 
-    const instance = await pair.finished()
+      const instance = await pair.finished()
 
-    await instance.ready()
+      await instance.ready()
 
-    await instance.close()
+      await instance.close()
 
-    this.store = null
+      this.store = null
 
-    return instance.encryptionKey.toString('base64')
+      return instance.encryptionKey.toString('base64')
+    } catch (error) {
+      this.store = null
+      throw new Error(`Pairing failed: ${error.message}`)
+    }
   }
 
   async cancelPairing() {
@@ -34,7 +39,11 @@ export class PearPassPairer {
       throw new Error('No store to close')
     }
 
-    await this.store.close()
-    this.store = null
+    try {
+      await this.store.close()
+      this.store = null
+    } catch (error) {
+      throw new Error(`Cancel pairing failed: ${error.message}`)
+    }
   }
 }
