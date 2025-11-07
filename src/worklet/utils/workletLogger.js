@@ -45,19 +45,17 @@ class WorkletLogger {
   }
 }
 
-const isProduction =
-  (typeof Pear !== 'undefined' && !!Pear.config?.key) ||
-  (typeof process !== 'undefined' &&
-    process.env &&
-    process.env.NODE_ENV === 'production')
+// const isProduction =
+//   (typeof Pear !== 'undefined' && !!Pear.config?.key) ||
+//   (typeof process !== 'undefined' &&
+//     process.env &&
+//     process.env.NODE_ENV === 'production')
 
 // Create a default WorkletLogger instance
-const workletLogger = new WorkletLogger({ debugMode: !isProduction })
+const workletLogger = new WorkletLogger({ debugMode: false })
 
-if (isProduction) {
-  workletLogger.setDebugMode(false)
-  workletLogger.setLogOutput(noop)
-}
+workletLogger.setDebugMode(false)
+workletLogger.setLogOutput(noop)
 
 // Export both the workletLogger instance and the class
 export { workletLogger, WorkletLogger }
