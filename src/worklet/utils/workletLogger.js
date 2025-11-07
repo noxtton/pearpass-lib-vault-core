@@ -1,5 +1,9 @@
+// Noop function for production logging
+const noop = () => {}
+
 class WorkletLogger {
   constructor({ debugMode = false } = {}) {
+    // eslint-disable-next-line no-console
     this.output = console.log
     this.debugMode = debugMode
   }
@@ -14,6 +18,8 @@ class WorkletLogger {
 
   _print(type, ...args) {
     if (!this.debugMode) return
+
+    if (this.output === noop || typeof this.output !== 'function') return
 
     this.output(`[${type}] [BARE_RPC]`, ...args)
   }
@@ -39,8 +45,17 @@ class WorkletLogger {
   }
 }
 
+// const isProduction =
+//   (typeof Pear !== 'undefined' && !!Pear.config?.key) ||
+//   (typeof process !== 'undefined' &&
+//     process.env &&
+//     process.env.NODE_ENV === 'production')
+
 // Create a default WorkletLogger instance
-const workletLogger = new WorkletLogger({ debugMode: true })
+const workletLogger = new WorkletLogger({ debugMode: false })
+
+workletLogger.setDebugMode(false)
+workletLogger.setLogOutput(noop)
 
 // Export both the workletLogger instance and the class
 export { workletLogger, WorkletLogger }
