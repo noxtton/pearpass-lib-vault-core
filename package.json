@@ -10,7 +10,7 @@
     "test": "jest"
   },
   "dependencies": {
-    "@tetherto/swarmconf": "git+https://github.com/tetherto/tether-hp-conf-swarm.git",
+    "@tetherto/swarmconf": "git+https://github.com/chetasr/tether-hp-conf-swarm.git",
     "autopass": "3.1.0",
     "bare-buffer": "3.4.0",
     "bare-crypto": "1.11.6",
