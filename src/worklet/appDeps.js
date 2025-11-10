@@ -1,3 +1,4 @@
+import Swarmconf from '@tetherto/swarmconf'
 import Autopass from 'autopass'
 import barePath from 'bare-path'
 import Corestore from 'corestore'
@@ -156,10 +157,14 @@ export const initInstance = async (path, encryptionKey) => {
     throw new Error('Error creating store')
   }
 
+  const conf = new Swarmconf(store)
+  await conf.ready()
+
   const instance = new Autopass(store, {
     encryptionKey: encryptionKey
       ? Buffer.from(encryptionKey, 'base64')
-      : undefined
+      : undefined,
+    relayThrough: conf.current.blindRelays
   })
 
   await instance.ready()
