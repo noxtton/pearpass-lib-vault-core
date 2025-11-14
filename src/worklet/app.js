@@ -704,4 +704,21 @@ ipc.on('end', async () => {
   Bare.exit(0)
 })
 
-export const rpc = new RPC(new FramedStream(ipc), handleRpcCommand)
+let rpc
+try {
+  rpc = new RPC(new FramedStream(ipc), (req) => {
+    try {
+      return handleRpcCommand(req)
+    } catch (error) {
+      req.reply(
+        JSON.stringify({
+          error: `Unexpected error: ${error}`
+        })
+      )
+    }
+  })
+} catch (error) {
+  workletLogger.error('Error creating RPC:', error)
+}
+
+export { rpc }

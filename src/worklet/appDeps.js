@@ -149,27 +149,31 @@ export const buildPath = (path) => {
  * @returns {Promise<Autopass>}
  */
 export const initInstance = async (path, encryptionKey) => {
-  const fullPath = buildPath(path)
+  try {
+    const fullPath = buildPath(path)
 
-  const store = new Corestore(fullPath)
+    const store = new Corestore(fullPath)
 
-  if (!store) {
-    throw new Error('Error creating store')
+    if (!store) {
+      throw new Error('Error creating store')
+    }
+
+    const conf = new Swarmconf(store)
+    await conf.ready()
+
+    const instance = new Autopass(store, {
+      encryptionKey: encryptionKey
+        ? Buffer.from(encryptionKey, 'base64')
+        : undefined,
+      relayThrough: conf.current.blindRelays
+    })
+
+    await instance.ready()
+
+    return instance
+  } catch (error) {
+    throw new Error(`Error initializing instance: ${error.message}`)
   }
-
-  const conf = new Swarmconf(store)
-  await conf.ready()
-
-  const instance = new Autopass(store, {
-    encryptionKey: encryptionKey
-      ? Buffer.from(encryptionKey, 'base64')
-      : undefined,
-    relayThrough: conf.current.blindRelays
-  })
-
-  await instance.ready()
-
-  return instance
 }
 
 /**
@@ -440,13 +444,13 @@ export const deleteInvite = async () => {
  * @returns {Promise<{ vaultId: string, encryptionKey: string }>}
  */
 export const pairActiveVault = async (inviteCode) => {
-  const [vaultId, inviteKey] = inviteCode.split('/')
-
-  if (isActiveVaultInitialized) {
-    await closeActiveVaultInstance()
-  }
-
   try {
+    const [vaultId, inviteKey] = inviteCode.split('/')
+
+    if (isActiveVaultInitialized) {
+      await closeActiveVaultInstance()
+    }
+
     const encryptionKey = await pearpassPairer.pairInstance(
       buildPath(`vault/${vaultId}`),
       inviteKey
