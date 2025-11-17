@@ -1,4 +1,4 @@
-import { handleRpcCommand } from './app'
+import { handleRpcCommand } from './appCore'
 import { destroySharedDHT } from './utils/dht'
 import { isPearWorker } from './utils/isPearWorker'
 import { workletLogger } from './utils/workletLogger'
