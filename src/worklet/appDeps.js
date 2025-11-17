@@ -2,7 +2,6 @@ import Swarmconf from '@tetherto/swarmconf'
 import Autopass from 'autopass'
 import barePath from 'bare-path'
 import Corestore from 'corestore'
-import Swarmconf from '@tetherto/swarmconf'
 
 import { PearPassPairer } from './pearpassPairer'
 import { defaultMirrorKeys } from '../constants/defaultBlindMirrors'
