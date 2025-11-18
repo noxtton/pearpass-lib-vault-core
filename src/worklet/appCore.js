@@ -52,7 +52,7 @@ import { workletLogger } from './utils/workletLogger'
 
 let rpc = null
 
-export const handleRpcCommand = async (req) => {
+export const handleRpcCommand = async (req, isExtension = false) => {
   const commandName = API_BY_VALUE[req.command]
 
   const requestData = parseRequestData(req.data)
@@ -81,7 +81,10 @@ export const handleRpcCommand = async (req) => {
           throw new Error('Password is required')
         }
 
-        const res = await vaultsInit(requestData.encryptionKey)
+        const res = await vaultsInit(
+          requestData.encryptionKey,
+          isExtension ? { readOnly: true } : {}
+        )
 
         req.reply(JSON.stringify({ success: true, res }))
       } catch (error) {
@@ -223,7 +226,8 @@ export const handleRpcCommand = async (req) => {
       try {
         await initActiveVaultInstance(
           requestData?.id,
-          requestData?.encryptionKey
+          requestData?.encryptionKey,
+          isExtension ? { readOnly: true } : {}
         )
 
         req.reply(JSON.stringify({ success: true }))
@@ -430,7 +434,7 @@ export const handleRpcCommand = async (req) => {
 
     case API.ENCRYPTION_INIT:
       try {
-        await encryptionInit('encryption')
+        await encryptionInit(isExtension ? { readOnly: true } : {})
 
         req.reply(JSON.stringify({ success: true }))
       } catch (error) {

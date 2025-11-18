@@ -146,13 +146,18 @@ export const buildPath = (path) => {
 /**
  * @param {string} path
  * @param {string | undefined} encryptionKey
+ * @param {Object} coreStoreOptions
  * @returns {Promise<Autopass>}
  */
-export const initInstance = async (path, encryptionKey) => {
+export const initInstance = async (
+  path,
+  encryptionKey,
+  coreStoreOptions = {}
+) => {
   try {
     const fullPath = buildPath(path)
 
-    const store = new Corestore(fullPath)
+    const store = new Corestore(fullPath, coreStoreOptions)
 
     if (!store) {
       throw new Error('Error creating store')
@@ -181,10 +186,18 @@ export const initInstance = async (path, encryptionKey) => {
  * @param {string | undefined} encryptionKey
  * @returns {Promise<Autopass>}
  */
-export const initActiveVaultInstance = async (id, encryptionKey) => {
+export const initActiveVaultInstance = async (
+  id,
+  encryptionKey,
+  coreStoreOptions = {}
+) => {
   isActiveVaultInitialized = false
 
-  activeVaultInstance = await initInstance(`vault/${id}`, encryptionKey)
+  activeVaultInstance = await initInstance(
+    `vault/${id}`,
+    encryptionKey,
+    coreStoreOptions
+  )
 
   isActiveVaultInitialized = true
 
@@ -199,10 +212,10 @@ export const initActiveVaultInstance = async (id, encryptionKey) => {
  * @param {string | undefined} encryptionKey
  * @returns {Promise<void>}
  */
-export const vaultsInit = async (encryptionKey) => {
+export const vaultsInit = async (encryptionKey, coreStoreOptions = {}) => {
   isVaultsInitialized = false
 
-  vaultsInstance = await initInstance('vaults', encryptionKey)
+  vaultsInstance = await initInstance('vaults', encryptionKey, coreStoreOptions)
 
   isVaultsInitialized = true
 }
@@ -210,10 +223,14 @@ export const vaultsInit = async (encryptionKey) => {
 /**
  * @returns {Promise<void>}
  */
-export const encryptionInit = async () => {
+export const encryptionInit = async (coreStoreOptions = {}) => {
   isEncryptionInitialized = false
 
-  encryptionInstance = await initInstance('encryption')
+  encryptionInstance = await initInstance(
+    'encryption',
+    undefined,
+    coreStoreOptions
+  )
 
   isEncryptionInitialized = true
 }
