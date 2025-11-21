@@ -700,7 +700,7 @@ export const handleRpcCommand = async (req, isExtension = false) => {
   }
 }
 
-export const setupIPC = (rpc) => {
+export const setupIPC = () => {
   const ipc = isPearWorker() ? Pear.worker.pipe() : BareKit.IPC
 
   ipc.on('close', async () => {
