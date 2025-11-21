@@ -49,7 +49,7 @@ import { sendFileStream } from '../utils/sendFileStream'
 import { isPearWorker } from './utils/isPearWorker'
 import { parseRequestData } from './utils/parseRequestData'
 import { workletLogger } from './utils/workletLogger'
-import { validateInviteCode } from "pearpass-lib-vault/src/utils/validateInviteCode.js";
+import { validateInviteCode } from '../utils/validateInviteCode'
 
 let rpc = null
 
