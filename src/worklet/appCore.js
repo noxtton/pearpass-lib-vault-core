@@ -49,6 +49,7 @@ import { sendFileStream } from '../utils/sendFileStream'
 import { isPearWorker } from './utils/isPearWorker'
 import { parseRequestData } from './utils/parseRequestData'
 import { workletLogger } from './utils/workletLogger'
+import { validateInviteCode } from '../utils/validateInviteCode'
 
 let rpc = null
 
@@ -355,6 +356,9 @@ export const handleRpcCommand = async (req, isExtension = false) => {
 
     case API.PAIR_ACTIVE_VAULT:
       try {
+        workletLogger.log('Validating invite code:', requestData.inviteCode)
+        validateInviteCode(requestData.inviteCode)
+
         workletLogger.log('Pairing with invite code:', requestData.inviteCode)
 
         const { vaultId, encryptionKey } = await pairActiveVault(
@@ -696,7 +700,7 @@ export const handleRpcCommand = async (req, isExtension = false) => {
   }
 }
 
-export const setupIPC = (rpc) => {
+export const setupIPC = () => {
   const ipc = isPearWorker() ? Pear.worker.pipe() : BareKit.IPC
 
   ipc.on('close', async () => {

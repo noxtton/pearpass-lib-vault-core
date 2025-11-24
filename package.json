@@ -36,6 +36,7 @@
     "jest": "30.2.0"
   },
   "peerDependencies": {
+    "pear-apps-utils-validator": "0.0.x",
     "tether-dev-docs": "0.0.x"
   }
 }

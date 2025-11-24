@@ -14,7 +14,7 @@ jest.mock('sodium-native', () => ({
   randombytes_buf: jest.fn((buf) => {
     buf.set(mockSalt)
   }),
-  sodium_malloc: jest.fn((size) => Buffer.alloc(size)),
+  sodium_malloc: jest.fn((size) => new Uint8Array(size)),
   crypto_pwhash: jest.fn((out) => {
     mockHashedPassword.copy(out)
   })
