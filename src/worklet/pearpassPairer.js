@@ -1,6 +1,6 @@
+import Swarmconf from '@tetherto/swarmconf'
 import Autopass from 'autopass'
 import Corestore from 'corestore'
-import Swarmconf from '@tetherto/swarmconf'
 
 export class PearPassPairer {
   constructor() {
