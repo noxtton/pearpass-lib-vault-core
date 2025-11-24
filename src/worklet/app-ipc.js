@@ -29,14 +29,12 @@ ipc.on('data', async (buffer) => {
   }
 })
 
-// eslint-disable-next-line no-undef
 ipc.on('close', async () => {
   await destroySharedDHT()
   // eslint-disable-next-line no-undef
   Bare.exit(0)
 })
 
-// eslint-disable-next-line no-undef
 ipc.on('end', async () => {
   await destroySharedDHT()
   // eslint-disable-next-line no-undef
