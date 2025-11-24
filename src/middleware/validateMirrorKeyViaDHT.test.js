@@ -123,19 +123,13 @@ describe('validateMirrorKeyViaDHT', () => {
 
       id.decode.mockReturnValue(decodedKey)
 
-      mockSocket.once.mockImplementation((event, callback) => {
-        if (event === 'timeout') {
-          setTimeout(callback, 10)
-        }
+      mockSocket.once.mockImplementation(() => {
+        // No events fire, will rely on function timeout
       })
 
-      const result = await validateMirrorKeyViaDHT(validKey)
+      const result = await validateMirrorKeyViaDHT(validKey, { timeoutMs: 100 })
 
       expect(result).toBe(false)
-      expect(mockSocket.once).toHaveBeenCalledWith(
-        'timeout',
-        expect.any(Function)
-      )
       expect(mockSocket.removeAllListeners).toHaveBeenCalled()
       expect(mockSocket.destroy).toHaveBeenCalled()
     })

@@ -1,6 +1,6 @@
 {
   "name": "pearpass-lib-vault-mobile",
-  "version": "0.0.60",
+  "version": "0.0.61",
   "type": "module",
   "description": "A bare wrapper for vault management library",
   "main": "src/index.js",
@@ -36,6 +36,7 @@
     "jest": "30.2.0"
   },
   "peerDependencies": {
+    "pear-apps-utils-validator": "0.0.x",
     "tether-dev-docs": "0.0.x"
   }
 }
