@@ -21,7 +21,9 @@ export class PearPassPairer {
       const conf = new Swarmconf(this.store)
       await conf.ready()
 
-      const pair = Autopass.pair(this.store, invite, { relayThrough: conf.current.blindRelays })
+      const pair = Autopass.pair(this.store, invite, {
+        relayThrough: conf.current.blindRelays
+      })
 
       const instance = await pair.finished()
 
