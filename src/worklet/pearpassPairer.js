@@ -8,6 +8,10 @@ export class PearPassPairer {
      * @type {Corestore | null}
      */
     this.store = null
+    /**
+     * @type {any | null}
+     */
+    this.pair = null
   }
 
   async pairInstance(path, invite) {
@@ -21,35 +25,44 @@ export class PearPassPairer {
       const conf = new Swarmconf(this.store)
       await conf.ready()
 
-      const pair = Autopass.pair(this.store, invite, {
+      this.pair = Autopass.pair(this.store, invite, {
         relayThrough: conf.current.blindRelays
       })
 
-      const instance = await pair.finished()
+      const instance = await this.pair.finished()
 
       await instance.ready()
 
       await instance.close()
 
       this.store = null
+      this.pair = null
 
       return instance.encryptionKey.toString('base64')
     } catch (error) {
-      this.store = null
+      await this.cancelPairing()
       throw new Error(`Pairing failed: ${error.message}`)
     }
   }
 
   async cancelPairing() {
-    if (!this.store) {
-      throw new Error('No store to close')
+    const hadPair = !!this.pair
+    if (this.pair) {
+      try {
+        await this.pair.close()
+      } catch {
+        // Ignore close errors
+      }
+      this.pair = null
     }
-
-    try {
-      await this.store.close()
-      this.store = null
-    } catch (error) {
-      throw new Error(`Cancel pairing failed: ${error.message}`)
+    // only close store if pair didn't exist (pair.close() already closes it)
+    if (this.store && !hadPair) {
+      try {
+        await this.store.close()
+      } catch {
+        // Ignore close errors
+      }
     }
+    this.store = null
   }
 }
