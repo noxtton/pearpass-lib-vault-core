@@ -290,12 +290,19 @@ export const closeVaultsInstance = async () => {
  * @param {Buffer} file
  * @returns {Promise<void>}
  */
-export const activeVaultAdd = async (key, data, file) => {
+export const activeVaultAdd = async (key, data, file, fileName) => {
   if (!isActiveVaultInitialized) {
     throw new Error('Vault not initialised')
   }
-
-  await activeVaultInstance.add(key, JSON.stringify(data), file)
+  try {
+    await activeVaultInstance.add(key, JSON.stringify(data), file)
+  } catch (error) {
+    const err = new Error(error.message)
+    if (fileName) {
+      err.details = { fileName }
+    }
+    throw err
+  }
 }
 
 /**

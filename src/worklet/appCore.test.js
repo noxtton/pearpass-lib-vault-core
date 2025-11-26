@@ -103,6 +103,10 @@ jest.mock('./utils/workletLogger', () => ({
   }
 }))
 
+jest.mock('../utils/validateInviteCode', () => ({
+  validateInviteCode: jest.fn((code) => code)
+}))
+
 jest.mock('./utils/dht', () => ({
   destroySharedDHT: (...args) => mockDestroySharedDHT(...args)
 }))
@@ -439,7 +443,7 @@ describe('handleRpcCommand', () => {
   test('ACTIVE_VAULT_FILE_ADD: success path', async () => {
     const mockStream = { mock: 'stream' }
     const mockBuffer = Buffer.from('file data')
-    const metaData = { key: 'file-key' }
+    const metaData = { key: 'file-key', name: 'file-name.jpg' }
 
     receiveFileStream.mockResolvedValue({
       buffer: mockBuffer,
@@ -460,7 +464,12 @@ describe('handleRpcCommand', () => {
 
     expect(createRequestStream).toHaveBeenCalled()
     expect(receiveFileStream).toHaveBeenCalledWith(mockStream)
-    expect(mockActiveVaultAdd).toHaveBeenCalledWith('file-key', {}, mockBuffer)
+    expect(mockActiveVaultAdd).toHaveBeenCalledWith(
+      'file-key',
+      {},
+      mockBuffer,
+      'file-name.jpg'
+    )
     expect(reply).toHaveBeenCalledTimes(1)
 
     const payload = JSON.parse(reply.mock.calls[0][0])

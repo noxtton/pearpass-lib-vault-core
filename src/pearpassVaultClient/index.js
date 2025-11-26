@@ -520,7 +520,7 @@ export class PearpassVaultClient extends EventEmitter {
    * @param {Buffer} buffer - The file data to add.
    * @returns {Promise<Object>}
    */
-  async activeVaultAddFile(key, buffer) {
+  async activeVaultAddFile(key, buffer, name) {
     try {
       this._logger.log('Adding file to active vault:', { key })
 
@@ -531,14 +531,19 @@ export class PearpassVaultClient extends EventEmitter {
       await sendFileStream({
         stream,
         buffer,
-        metaData: { key }
+        metaData: { key, name }
       })
 
       const res = await req.reply('utf8')
 
-      this._logger.log('File added', res)
+      const parsedResponse = JSON.parse(res)
+
+      this._handleError(parsedResponse)
+
+      this._logger.log('File added', parsedResponse)
     } catch (error) {
       this._logger.error('Error adding file to active vault:', error)
+      throw error
     }
   }
 
