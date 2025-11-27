@@ -54,6 +54,7 @@ class WorkletLogger {
 // Create a default WorkletLogger instance
 const workletLogger = new WorkletLogger({ debugMode: false })
 
+workletLogger.setDebugMode(false)
 workletLogger.setLogOutput(noop)
 
 // Export both the workletLogger instance and the class

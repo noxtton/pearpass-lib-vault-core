@@ -1,7 +1,7 @@
+import Swarmconf from '@tetherto/swarmconf'
 import Autopass from 'autopass'
 import barePath from 'bare-path'
 import Corestore from 'corestore'
-import Swarmconf from '@tetherto/swarmconf'
 
 import { PearPassPairer } from './pearpassPairer'
 import { defaultMirrorKeys } from '../constants/defaultBlindMirrors'
@@ -146,30 +146,39 @@ export const buildPath = (path) => {
 /**
  * @param {string} path
  * @param {string | undefined} encryptionKey
+ * @param {Object} coreStoreOptions
  * @returns {Promise<Autopass>}
  */
-export const initInstance = async (path, encryptionKey) => {
-  const fullPath = buildPath(path)
+export const initInstance = async (
+  path,
+  encryptionKey,
+  coreStoreOptions = {}
+) => {
+  try {
+    const fullPath = buildPath(path)
 
-  const store = new Corestore(fullPath)
+    const store = new Corestore(fullPath, coreStoreOptions)
 
-  if (!store) {
-    throw new Error('Error creating store')
+    if (!store) {
+      throw new Error('Error creating store')
+    }
+
+    const conf = new Swarmconf(store)
+    await conf.ready()
+
+    const instance = new Autopass(store, {
+      encryptionKey: encryptionKey
+        ? Buffer.from(encryptionKey, 'base64')
+        : undefined,
+      relayThrough: conf.current.blindRelays
+    })
+
+    await instance.ready()
+
+    return instance
+  } catch (error) {
+    throw new Error(`Error initializing instance: ${error.message}`)
   }
-
-  const conf = new Swarmconf(store)
-  await conf.ready()
-
-  const instance = new Autopass(store, {
-    encryptionKey: encryptionKey
-      ? Buffer.from(encryptionKey, 'base64')
-      : undefined,
-    relayThrough: conf.current.blindRelays
-  })
-
-  await instance.ready()
-
-  return instance
 }
 
 /**
@@ -177,10 +186,18 @@ export const initInstance = async (path, encryptionKey) => {
  * @param {string | undefined} encryptionKey
  * @returns {Promise<Autopass>}
  */
-export const initActiveVaultInstance = async (id, encryptionKey) => {
+export const initActiveVaultInstance = async (
+  id,
+  encryptionKey,
+  coreStoreOptions = {}
+) => {
   isActiveVaultInitialized = false
 
-  activeVaultInstance = await initInstance(`vault/${id}`, encryptionKey)
+  activeVaultInstance = await initInstance(
+    `vault/${id}`,
+    encryptionKey,
+    coreStoreOptions
+  )
 
   isActiveVaultInitialized = true
 
@@ -195,10 +212,10 @@ export const initActiveVaultInstance = async (id, encryptionKey) => {
  * @param {string | undefined} encryptionKey
  * @returns {Promise<void>}
  */
-export const vaultsInit = async (encryptionKey) => {
+export const vaultsInit = async (encryptionKey, coreStoreOptions = {}) => {
   isVaultsInitialized = false
 
-  vaultsInstance = await initInstance('vaults', encryptionKey)
+  vaultsInstance = await initInstance('vaults', encryptionKey, coreStoreOptions)
 
   isVaultsInitialized = true
 }
@@ -206,10 +223,14 @@ export const vaultsInit = async (encryptionKey) => {
 /**
  * @returns {Promise<void>}
  */
-export const encryptionInit = async () => {
+export const encryptionInit = async (coreStoreOptions = {}) => {
   isEncryptionInitialized = false
 
-  encryptionInstance = await initInstance('encryption')
+  encryptionInstance = await initInstance(
+    'encryption',
+    undefined,
+    coreStoreOptions
+  )
 
   isEncryptionInitialized = true
 }
@@ -440,13 +461,13 @@ export const deleteInvite = async () => {
  * @returns {Promise<{ vaultId: string, encryptionKey: string }>}
  */
 export const pairActiveVault = async (inviteCode) => {
-  const [vaultId, inviteKey] = inviteCode.split('/')
-
-  if (isActiveVaultInitialized) {
-    await closeActiveVaultInstance()
-  }
-
   try {
+    const [vaultId, inviteKey] = inviteCode.split('/')
+
+    if (isActiveVaultInitialized) {
+      await closeActiveVaultInstance()
+    }
+
     const encryptionKey = await pearpassPairer.pairInstance(
       buildPath(`vault/${vaultId}`),
       inviteKey

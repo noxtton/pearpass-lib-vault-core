@@ -1,4 +1,5 @@
-import { handleRpcCommand } from './app'
+import { handleRpcCommand } from './appCore'
+import { destroySharedDHT } from './utils/dht'
 import { isPearWorker } from './utils/isPearWorker'
 import { workletLogger } from './utils/workletLogger'
 
@@ -22,14 +23,20 @@ ipc.on('data', async (buffer) => {
       send: () => {}
     }
 
-    await handleRpcCommand(req)
+    await handleRpcCommand(req, true)
   } catch (error) {
     workletLogger.error('Error receiving message:', error)
   }
 })
 
-// eslint-disable-next-line no-undef
-ipc.on('close', () => Bare.exit(0))
+ipc.on('close', async () => {
+  await destroySharedDHT()
+  // eslint-disable-next-line no-undef
+  Bare.exit(0)
+})
 
-// eslint-disable-next-line no-undef
-ipc.on('end', () => Bare.exit(0))
+ipc.on('end', async () => {
+  await destroySharedDHT()
+  // eslint-disable-next-line no-undef
+  Bare.exit(0)
+})

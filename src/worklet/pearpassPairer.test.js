@@ -1,19 +1,37 @@
 import { randomBytes } from 'crypto'
 
 import { jest } from '@jest/globals'
+import Swarmconf from '@tetherto/swarmconf'
 import Autopass from 'autopass'
 import Corestore from 'corestore'
 
 import { PearPassPairer } from './pearpassPairer'
 
-jest.mock('autopass')
-jest.mock('corestore')
+// Mock the native modules before importing anything that depends on them
+jest.mock('autopass', () => ({
+  __esModule: true,
+  default: {
+    pair: jest.fn()
+  }
+}))
+
+jest.mock('corestore', () => jest.fn())
+
+jest.mock('@tetherto/swarmconf', () =>
+  jest.fn().mockImplementation(() => ({
+    ready: jest.fn().mockResolvedValue(undefined),
+    current: {
+      blindRelays: []
+    }
+  }))
+)
 
 describe('PearPassPairer', () => {
   let pairer
   let mockStore
   let mockInstance
   let mockPair
+  let mockSwarmconf
 
   beforeEach(() => {
     jest.clearAllMocks()
@@ -35,6 +53,14 @@ describe('PearPassPairer', () => {
     }
     Corestore.mockImplementation(() => mockStore)
 
+    mockSwarmconf = {
+      ready: jest.fn().mockResolvedValue(undefined),
+      current: {
+        blindRelays: []
+      }
+    }
+    Swarmconf.mockImplementation(() => mockSwarmconf)
+
     pairer = new PearPassPairer()
   })
 
@@ -48,7 +74,9 @@ describe('PearPassPairer', () => {
       const result = await pairer.pairInstance(path, invite)
 
       expect(Corestore).toHaveBeenCalledWith(path)
-      expect(Autopass.pair).toHaveBeenCalledWith(mockStore, invite)
+      expect(Autopass.pair).toHaveBeenCalledWith(mockStore, invite, {
+        relayThrough: []
+      })
       expect(mockPair.finished).toHaveBeenCalled()
       expect(mockInstance.ready).toHaveBeenCalled()
       expect(mockInstance.close).toHaveBeenCalled()

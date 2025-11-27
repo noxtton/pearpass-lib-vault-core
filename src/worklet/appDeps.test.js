@@ -40,7 +40,10 @@ jest.mock('autopass', () => {
         }
       }),
       removeAllListeners: jest.fn(),
-      on: jest.fn()
+      on: jest.fn(),
+      core: {
+        ready: jest.fn().mockResolvedValue()
+      }
     })
   }
 
@@ -72,7 +75,10 @@ jest.mock('autopass', () => {
     }),
     removeAllListeners: jest.fn(),
     on: jest.fn(),
-    pairInstance: jest.fn().mockResolvedValue()
+    pairInstance: jest.fn().mockResolvedValue(),
+    core: {
+      ready: jest.fn().mockResolvedValue()
+    }
   }))
 
   mockAutopass.pair = jest.fn().mockReturnValue(mockPair)
@@ -115,6 +121,15 @@ jest.mock('bare-rpc', () =>
 jest.mock('bare-path', () => ({
   join: (...args) => args.join('/')
 }))
+
+jest.mock('@tetherto/swarmconf', () =>
+  jest.fn().mockImplementation(() => ({
+    ready: jest.fn().mockResolvedValue(),
+    current: {
+      blindRelays: []
+    }
+  }))
+)
 
 jest.mock('./utils/isPearWorker', () => ({
   isPearWorker: jest.fn().mockReturnValue(false)
