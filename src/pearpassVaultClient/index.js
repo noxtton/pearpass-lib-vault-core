@@ -216,6 +216,26 @@ export class PearpassVaultClient extends EventEmitter {
   }
 
   /**
+   * Records a failed master password attempt for rate limiting.
+   * @returns {Promise<Object>}
+   */
+  async recordFailedMasterPassword() {
+    return this._handleRequest({
+      command: API.RECORD_FAILED_MASTER_PASSWORD
+    })
+  }
+
+  /**
+   * Gets the master password rate limit status.
+   * @returns {Promise<{status: {isLocked: boolean, lockoutRemainingMs: number, remainingAttempts: number}}>}
+   */
+  async getMasterPasswordStatus() {
+    return this._handleRequest({
+      command: API.MASTER_PASSWORD_STATUS
+    })
+  }
+
+  /**
    * Closes the active vault.
    * @returns {Promise<Object>}
    */

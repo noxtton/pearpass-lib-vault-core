@@ -4,6 +4,7 @@ import barePath from 'bare-path'
 import Corestore from 'corestore'
 
 import { PearPassPairer } from './pearpassPairer'
+import { RateLimiter } from './rateLimiter'
 import { defaultMirrorKeys } from '../constants/defaultBlindMirrors'
 import { isPearWorker } from './utils/isPearWorker'
 
@@ -24,6 +25,7 @@ let lastActiveVaultEncryptionKey = null
 let lastOnUpdateCallback = null
 
 const pearpassPairer = new PearPassPairer()
+const rateLimiter = new RateLimiter()
 
 /**
  * @param {string} path
@@ -206,6 +208,35 @@ export const initActiveVaultInstance = async (
   lastActiveVaultEncryptionKey = encryptionKey
 
   return activeVaultInstance
+}
+
+/**
+ * @returns {Promise<void>}
+ */
+export const rateLimitInit = async () => {
+  if (!isEncryptionInitialized) {
+    return
+  }
+
+  await rateLimiter.setStorage({
+    get: encryptionGet,
+    add: encryptionAdd
+  })
+}
+
+/**
+ * @returns {Promise<void>}
+ */
+export const rateLimitRecordFailure = async () => {
+  await rateLimiter.recordFailure()
+}
+
+/**
+ * @returns {Promise<{ isLocked: boolean, lockoutRemainingMs: number, remainingAttempts: number }>}
+ */
+export const getRateLimitStatus = async () => {
+  await rateLimitInit()
+  return await rateLimiter.getStatus()
 }
 
 /**

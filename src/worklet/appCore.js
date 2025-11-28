@@ -35,7 +35,9 @@ import {
   vaultsAdd,
   vaultsGet,
   vaultsInit,
-  vaultsList
+  vaultsList,
+  rateLimitRecordFailure,
+  getRateLimitStatus
 } from './appDeps'
 import { decryptVaultKey } from './decryptVaultKey'
 import { encryptVaultKeyWithHashedPassword } from './encryptVaultKeyWithHashedPassword'
@@ -403,6 +405,28 @@ export const handleRpcCommand = async (req, isExtension = false) => {
         req.reply(
           JSON.stringify({
             error: `Error canceling pairing with active vault: ${error}`
+          })
+        )
+      }
+
+      break
+
+    case API.MASTER_PASSWORD_STATUS:
+      const result = await getRateLimitStatus()
+
+      req.reply(JSON.stringify({ data: result }))
+
+      break
+
+    case API.RECORD_FAILED_MASTER_PASSWORD:
+      try {
+        await rateLimitRecordFailure()
+
+        req.reply(JSON.stringify({ success: true }))
+      } catch (error) {
+        req.reply(
+          JSON.stringify({
+            error: `Error recording failed master pass: ${error}`
           })
         )
       }
