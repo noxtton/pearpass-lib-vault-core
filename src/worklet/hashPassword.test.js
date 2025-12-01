@@ -15,7 +15,7 @@ jest.mock('sodium-native', () => ({
   randombytes_buf: jest.fn((buf) => {
     buf.set(mockSalt)
   }),
-  sodium_malloc: jest.fn((size) => new Uint8Array(size)),
+  sodium_malloc: jest.fn((size) => Buffer.alloc(size)),
   crypto_pwhash: jest.fn((out) => {
     mockHashedPassword.copy(out)
   })
@@ -36,7 +36,7 @@ describe('hashPassword', () => {
     )
     expect(sodium.crypto_pwhash).toHaveBeenCalledTimes(1)
 
-    const hashedPasswordBuffer = sodium.sodium_malloc.mock.results[0].value
+    const hashedPasswordBuffer = sodium.sodium_malloc.mock.results[1].value
     expect(sodium.crypto_pwhash).toHaveBeenCalledWith(
       hashedPasswordBuffer,
       Buffer.from(password),

@@ -6,7 +6,8 @@ jest.mock('sodium-native', () => ({
   crypto_secretbox_NONCEBYTES: 24,
   crypto_secretbox_MACBYTES: 16,
   randombytes_buf: jest.fn(),
-  crypto_secretbox_easy: jest.fn()
+  crypto_secretbox_easy: jest.fn(),
+  sodium_malloc: jest.fn((size) => Buffer.alloc(size))
 }))
 
 describe('encryptVaultKeyWithHashedPassword', () => {

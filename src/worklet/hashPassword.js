@@ -9,7 +9,7 @@ import sodium from 'sodium-native'
  * }}
  */
 export const hashPassword = (password) => {
-  const salt = Buffer.alloc(sodium.crypto_pwhash_SALTBYTES)
+  const salt = sodium.sodium_malloc(sodium.crypto_pwhash_SALTBYTES)
 
   sodium.randombytes_buf(salt)
 
