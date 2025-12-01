@@ -9,6 +9,7 @@ jest.mock('sodium-native', () => ({
   crypto_pwhash_SALTBYTES: 32,
   crypto_secretbox_KEYBYTES: 32,
   crypto_pwhash_OPSLIMIT_INTERACTIVE: 2,
+  crypto_pwhash_OPSLIMIT_SENSITIVE: 4,
   crypto_pwhash_MEMLIMIT_INTERACTIVE: 67108864,
   crypto_pwhash_ALG_DEFAULT: 2,
   randombytes_buf: jest.fn((buf) => {
@@ -40,7 +41,7 @@ describe('hashPassword', () => {
       hashedPasswordBuffer,
       Buffer.from(password),
       expect.any(Buffer),
-      sodium.crypto_pwhash_OPSLIMIT_INTERACTIVE,
+      sodium.crypto_pwhash_OPSLIMIT_SENSITIVE,
       sodium.crypto_pwhash_MEMLIMIT_INTERACTIVE,
       sodium.crypto_pwhash_ALG_DEFAULT
     )
