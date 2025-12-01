@@ -10,11 +10,11 @@ import sodium from 'sodium-native'
  * }}
  */
 export const encryptVaultWithKey = (hashedPassword, key) => {
-  const nonce = Buffer.alloc(sodium.crypto_secretbox_NONCEBYTES)
+  const nonce = sodium.sodium_malloc(sodium.crypto_secretbox_NONCEBYTES)
 
   const keyBuffer = Buffer.from(key, 'base64')
 
-  const ciphertext = Buffer.alloc(
+  const ciphertext = sodium.sodium_malloc(
     keyBuffer.length + sodium.crypto_secretbox_MACBYTES
   )
 

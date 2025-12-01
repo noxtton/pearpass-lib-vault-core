@@ -7,6 +7,7 @@ jest.mock('sodium-native', () => {
     sodium_malloc: jest.fn().mockImplementation((size) => Buffer.alloc(size)),
     crypto_secretbox_KEYBYTES: 32,
     crypto_pwhash_OPSLIMIT_INTERACTIVE: 2,
+    crypto_pwhash_OPSLIMIT_SENSITIVE: 4,
     crypto_pwhash_MEMLIMIT_INTERACTIVE: 67108864,
     crypto_pwhash_ALG_DEFAULT: 2,
     crypto_pwhash: jest.fn().mockImplementation((out) => {
@@ -48,7 +49,7 @@ describe('getDecryptionKey', () => {
       expect.any(Buffer),
       Buffer.from(password),
       Buffer.from(salt, 'base64'),
-      sodium.crypto_pwhash_OPSLIMIT_INTERACTIVE,
+      sodium.crypto_pwhash_OPSLIMIT_SENSITIVE,
       sodium.crypto_pwhash_MEMLIMIT_INTERACTIVE,
       sodium.crypto_pwhash_ALG_DEFAULT
     )

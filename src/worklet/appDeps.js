@@ -4,6 +4,7 @@ import barePath from 'bare-path'
 import Corestore from 'corestore'
 
 import { PearPassPairer } from './pearpassPairer'
+import { RateLimiter } from './rateLimiter'
 import { defaultMirrorKeys } from '../constants/defaultBlindMirrors'
 import { isPearWorker } from './utils/isPearWorker'
 
@@ -24,6 +25,7 @@ let lastActiveVaultEncryptionKey = null
 let lastOnUpdateCallback = null
 
 const pearpassPairer = new PearPassPairer()
+const rateLimiter = new RateLimiter()
 
 /**
  * @param {string} path
@@ -209,6 +211,35 @@ export const initActiveVaultInstance = async (
 }
 
 /**
+ * @returns {Promise<void>}
+ */
+export const rateLimitInit = async () => {
+  if (!isEncryptionInitialized) {
+    return
+  }
+
+  await rateLimiter.setStorage({
+    get: encryptionGet,
+    add: encryptionAdd
+  })
+}
+
+/**
+ * @returns {Promise<void>}
+ */
+export const rateLimitRecordFailure = async () => {
+  await rateLimiter.recordFailure()
+}
+
+/**
+ * @returns {Promise<{ isLocked: boolean, lockoutRemainingMs: number, remainingAttempts: number }>}
+ */
+export const getRateLimitStatus = async () => {
+  await rateLimitInit()
+  return await rateLimiter.getStatus()
+}
+
+/**
  * @param {string | undefined} encryptionKey
  * @returns {Promise<void>}
  */
@@ -290,12 +321,19 @@ export const closeVaultsInstance = async () => {
  * @param {Buffer} file
  * @returns {Promise<void>}
  */
-export const activeVaultAdd = async (key, data, file) => {
+export const activeVaultAdd = async (key, data, file, fileName) => {
   if (!isActiveVaultInitialized) {
     throw new Error('Vault not initialised')
   }
-
-  await activeVaultInstance.add(key, JSON.stringify(data), file)
+  try {
+    await activeVaultInstance.add(key, JSON.stringify(data), file)
+  } catch (error) {
+    const err = new Error(error.message)
+    if (fileName) {
+      err.details = { fileName }
+    }
+    throw err
+  }
 }
 
 /**

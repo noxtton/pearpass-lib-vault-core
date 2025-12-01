@@ -13,7 +13,7 @@ export const getDecryptionKey = (data) => {
 
   const hashedPassword = sodium.sodium_malloc(sodium.crypto_secretbox_KEYBYTES)
 
-  const opslimit = sodium.crypto_pwhash_OPSLIMIT_INTERACTIVE
+  const opslimit = sodium.crypto_pwhash_OPSLIMIT_SENSITIVE
   const memlimit = sodium.crypto_pwhash_MEMLIMIT_INTERACTIVE
   const algo = sodium.crypto_pwhash_ALG_DEFAULT
 

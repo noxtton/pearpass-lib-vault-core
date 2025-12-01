@@ -15,7 +15,7 @@ export const decryptVaultKey = (data) => {
   const hashedPassword = sodium.sodium_malloc(sodium.crypto_secretbox_KEYBYTES)
   Buffer.from(data.hashedPassword, 'hex').copy(hashedPassword)
 
-  const plainText = Buffer.alloc(
+  const plainText = sodium.sodium_malloc(
     ciphertext.length - sodium.crypto_secretbox_MACBYTES
   )
 

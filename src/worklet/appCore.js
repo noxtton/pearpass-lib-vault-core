@@ -35,7 +35,9 @@ import {
   vaultsAdd,
   vaultsGet,
   vaultsInit,
-  vaultsList
+  vaultsList,
+  rateLimitRecordFailure,
+  getRateLimitStatus
 } from './appDeps'
 import { decryptVaultKey } from './decryptVaultKey'
 import { encryptVaultKeyWithHashedPassword } from './encryptVaultKeyWithHashedPassword'
@@ -153,8 +155,8 @@ export const handleRpcCommand = async (req, isExtension = false) => {
         const stream = req.createRequestStream()
 
         const { buffer, metaData } = await receiveFileStream(stream)
-
-        await activeVaultAdd(metaData.key, {}, buffer)
+        const { key, name } = metaData ?? {}
+        await activeVaultAdd(key, {}, buffer, name)
 
         workletLogger.log({
           stream: `Received stream data of size: ${buffer.length}`,
@@ -163,9 +165,10 @@ export const handleRpcCommand = async (req, isExtension = false) => {
 
         req.reply(JSON.stringify({ success: true, metaData }))
       } catch (error) {
+        workletLogger.error('Error adding file to active vault:', error)
         req.reply(
           JSON.stringify({
-            error: `Error adding file to active vault: ${error}`
+            error: `Could not add ${error.details?.fileName ?? 'file'} to the active vault: ${error.message}`
           })
         )
       }
@@ -402,6 +405,28 @@ export const handleRpcCommand = async (req, isExtension = false) => {
         req.reply(
           JSON.stringify({
             error: `Error canceling pairing with active vault: ${error}`
+          })
+        )
+      }
+
+      break
+
+    case API.MASTER_PASSWORD_STATUS:
+      const result = await getRateLimitStatus()
+
+      req.reply(JSON.stringify({ data: result }))
+
+      break
+
+    case API.RECORD_FAILED_MASTER_PASSWORD:
+      try {
+        await rateLimitRecordFailure()
+
+        req.reply(JSON.stringify({ success: true }))
+      } catch (error) {
+        req.reply(
+          JSON.stringify({
+            error: `Error recording failed master pass: ${error}`
           })
         )
       }

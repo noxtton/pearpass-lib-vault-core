@@ -216,6 +216,26 @@ export class PearpassVaultClient extends EventEmitter {
   }
 
   /**
+   * Records a failed master password attempt for rate limiting.
+   * @returns {Promise<Object>}
+   */
+  async recordFailedMasterPassword() {
+    return this._handleRequest({
+      command: API.RECORD_FAILED_MASTER_PASSWORD
+    })
+  }
+
+  /**
+   * Gets the master password rate limit status.
+   * @returns {Promise<{status: {isLocked: boolean, lockoutRemainingMs: number, remainingAttempts: number}}>}
+   */
+  async getMasterPasswordStatus() {
+    return this._handleRequest({
+      command: API.MASTER_PASSWORD_STATUS
+    })
+  }
+
+  /**
    * Closes the active vault.
    * @returns {Promise<Object>}
    */
@@ -520,7 +540,7 @@ export class PearpassVaultClient extends EventEmitter {
    * @param {Buffer} buffer - The file data to add.
    * @returns {Promise<Object>}
    */
-  async activeVaultAddFile(key, buffer) {
+  async activeVaultAddFile(key, buffer, name) {
     try {
       this._logger.log('Adding file to active vault:', { key })
 
@@ -531,14 +551,19 @@ export class PearpassVaultClient extends EventEmitter {
       await sendFileStream({
         stream,
         buffer,
-        metaData: { key }
+        metaData: { key, name }
       })
 
       const res = await req.reply('utf8')
 
-      this._logger.log('File added', res)
+      const parsedResponse = JSON.parse(res)
+
+      this._handleError(parsedResponse)
+
+      this._logger.log('File added', parsedResponse)
     } catch (error) {
       this._logger.error('Error adding file to active vault:', error)
+      throw error
     }
   }
 
