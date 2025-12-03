@@ -17,5 +17,5 @@ export class Logger {
 }
 
 export const logger = new Logger({
-  debugMode: true
+  debugMode: false
 })
