@@ -12,7 +12,9 @@ export const encryptVaultKeyWithHashedPassword = (hashedPassword) => {
   const nonce = sodium.sodium_malloc(sodium.crypto_secretbox_NONCEBYTES)
   const key = sodium.sodium_malloc(32)
 
-  const ciphertext = sodium.sodium_malloc(key.length + sodium.crypto_secretbox_MACBYTES)
+  const ciphertext = sodium.sodium_malloc(
+    key.length + sodium.crypto_secretbox_MACBYTES
+  )
 
   sodium.randombytes_buf(key)
   sodium.randombytes_buf(nonce)
