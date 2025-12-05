@@ -28,13 +28,137 @@ const pearpassPairer = new PearPassPairer()
 const rateLimiter = new RateLimiter()
 
 /**
+ * Validates and sanitizes a storage path
+ * @param {string} rawPath - The raw path to validate
+ * @returns {string} - The sanitized path
+ * @throws {Error} - If path is invalid or unsafe
+ */
+const validateAndSanitizePath = (rawPath) => {
+  if (!rawPath || typeof rawPath !== 'string') {
+    throw new Error('Storage path must be a non-empty string')
+  }
+
+  // Strip file:// protocol if present
+  let cleanPath = rawPath
+  if (cleanPath.startsWith('file://')) {
+    cleanPath = cleanPath.substring('file://'.length)
+  }
+
+  // Trim whitespace
+  cleanPath = cleanPath.trim()
+
+  if (cleanPath.length === 0) {
+    throw new Error('Storage path cannot be empty after sanitization')
+  }
+
+  // Check for null bytes before any processing (path traversal attack vector)
+  if (cleanPath.includes('\0')) {
+    throw new Error('Storage path contains invalid null bytes')
+  }
+
+  // Reject relative paths - only absolute paths are allowed
+  if (!cleanPath.startsWith('/')) {
+    throw new Error('Storage path must be an absolute path')
+  }
+
+  // Reject any path containing traversal sequences
+  if (cleanPath.includes('..') || cleanPath.includes('./') || cleanPath.includes('/.')) {
+    throw new Error('Storage path must not contain traversal sequences (. or ..)')
+  }
+
+  // Normalize path to remove redundant slashes and trailing slashes
+  cleanPath = barePath.normalize(cleanPath)
+
+  return cleanPath
+}
+
+/**
+ * Get platform-specific forbidden system directories
+ * @returns {string[]} List of forbidden root directories
+ */
+const getForbiddenRoots = () => {
+  // Detect platform using Bare runtime's platform property
+  const isWindows = Bare.platform === 'win32'
+  const isMac = Bare.platform === 'darwin'
+
+  if (isWindows) {
+    // Windows system directories (case-insensitive filesystem)
+    // These are protected by TrustedInstaller and should never contain user app data
+    return [
+      'C:\\Windows',
+      'C:\\Windows\\System32',
+      'C:\\Windows\\SysWOW64',
+      'C:\\Program Files',
+      'C:\\Program Files (x86)',
+      'C:\\Program Files\\WindowsApps',
+      'C:\\ProgramData',
+      'C:\\System Volume Information'
+    ]
+  }
+
+  if (isMac) {
+    // macOS-specific system directories protected by System Integrity Protection (SIP)
+    return [
+      '/bin',
+      '/sbin',
+      '/usr/bin',
+      '/usr/sbin',
+      '/etc',
+      '/var',
+      '/tmp',
+      '/root',
+      '/boot',
+      '/sys',
+      '/proc',
+      '/dev',
+      '/System',
+      '/Library',
+      '/private'
+    ]
+  }
+
+  // Unix/Linux system directories (FHS-compliant)
+  return [
+    '/bin',
+    '/sbin',
+    '/usr/bin',
+    '/usr/sbin',
+    '/etc',
+    '/var',
+    '/tmp',
+    '/root',
+    '/boot',
+    '/sys',
+    '/proc',
+    '/dev',
+    '/lib',
+    '/lib64'
+  ]
+}
+
+/**
  * @param {string} path
  * @returns {Promise<void>}
  * */
 export const setStoragePath = async (path) => {
-  STORAGE_PATH = isPearWorker()
-    ? path
-    : path.substring('file://'.length, path.length)
+  const sanitizedPath = validateAndSanitizePath(path)
+
+  // Block access to restricted system directories
+  const forbiddenRoots = getForbiddenRoots()
+  const isWindows = Bare.platform === 'win32'
+
+  for (const root of forbiddenRoots) {
+    // Windows paths are case-insensitive
+    const normalizedRoot = isWindows ? root.toLowerCase() : root
+    const normalizedPath = isWindows ? sanitizedPath.toLowerCase() : sanitizedPath
+    const separator = isWindows ? '\\' : '/'
+
+    if (normalizedPath === normalizedRoot || normalizedPath.startsWith(normalizedRoot + separator)) {
+      throw new Error('Storage path points to a restricted system directory')
+    }
+  }
+
+  STORAGE_PATH = sanitizedPath
 }
 
 /**
@@ -142,7 +266,21 @@ export const buildPath = (path) => {
     throw new Error('Storage path not set')
   }
 
-  return barePath.join(STORAGE_PATH, path)
+  // Join and resolve the path (handles traversal sequences like ..)
+  const resolved = barePath.join(STORAGE_PATH, path)
+
+  // Normalize both paths for comparison (handles trailing slashes, etc.)
+  const normalizedRoot = barePath.normalize(STORAGE_PATH)
+  const normalizedResolved = barePath.normalize(resolved)
+
+  // Ensure the resolved path is within the storage root
+  // Allow exact match or subdirectories
+  if (normalizedResolved !== normalizedRoot && 
+      !normalizedResolved.startsWith(normalizedRoot + barePath.sep)) {
+    throw new Error('Resolved path escapes storage root')
+  }
+
+  return normalizedResolved
 }
 
 /**
