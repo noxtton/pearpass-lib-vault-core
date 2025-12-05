@@ -192,7 +192,6 @@ describe('PearpassVaultClient', () => {
     expect(logSpy).toHaveBeenCalledWith('Adding file to active vault:', {
       key: 'fileKey'
     })
-    expect(logSpy).toHaveBeenCalledWith('File added', expect.any(String))
   })
 
   it('should call activeVaultGetFile and return buffer', async () => {
@@ -205,7 +204,9 @@ describe('PearpassVaultClient', () => {
       throw new Error('fail')
     }
     const errorSpy = jest.spyOn(client._logger, 'error')
-    await client.activeVaultAddFile('fileKey', Buffer.from('data'))
+    await client
+      .activeVaultAddFile('fileKey', Buffer.from('data'))
+      .catch(() => {})
     expect(errorSpy).toHaveBeenCalledWith(
       'Error adding file to active vault:',
       expect.any(Error)

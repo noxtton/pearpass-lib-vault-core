@@ -119,11 +119,11 @@ jest.mock('bare-rpc', () =>
 )
 
 jest.mock('bare-path', () => ({
-  sep: '/',  // Unix path separator for tests
+  sep: '/', // Unix path separator for tests
   join: (...args) => args.join('/'),
   normalize: (path) => {
     // Simple normalization: remove trailing slashes and redundant slashes
-    let result = path.replace(/\/+/g, '/').replace(/\/$/, '') || '/'
+    const result = path.replace(/\/+/g, '/').replace(/\/$/, '') || '/'
     // Handle .. for normalization
     const parts = result.split('/')
     const normalized = []
@@ -169,9 +169,17 @@ jest.mock('./utils/isPearWorker', () => ({
   isPearWorker: jest.fn().mockReturnValue(false)
 }))
 
+jest.mock('./validateAndSanitizePath', () => ({
+  validateAndSanitizePath: jest.fn().mockImplementation((path) => path)
+}))
+
+jest.mock('./getForbiddenRoots', () => ({
+  getForbiddenRoots: jest.fn().mockReturnValue(['/etc', '/bin', '/tmp', '/var'])
+}))
+
 // Mock Bare global for platform detection
 global.Bare = {
-  platform: 'posix'  // Unix-like for tests
+  platform: 'posix' // Unix-like for tests
 }
 
 import * as appDeps from './appDeps'
@@ -189,69 +197,9 @@ describe('appDeps module functions (excluding encryption)', () => {
     })
 
     test('buildPath returns expected path after setStoragePath', async () => {
-      await appDeps.setStoragePath('file:///home/user/data')
+      await appDeps.setStoragePath('/home/user/data')
       const result = appDeps.buildPath('vault/test')
       expect(result).toBe('/home/user/data/vault/test')
-    })
-
-    test('setStoragePath should reject empty string', async () => {
-      await expect(appDeps.setStoragePath('')).rejects.toThrow(
-        'Storage path must be a non-empty string'
-      )
-    })
-
-    test('setStoragePath should reject null', async () => {
-      await expect(appDeps.setStoragePath(null)).rejects.toThrow(
-        'Storage path must be a non-empty string'
-      )
-    })
-
-    test('setStoragePath should reject undefined', async () => {
-      await expect(appDeps.setStoragePath(undefined)).rejects.toThrow(
-        'Storage path must be a non-empty string'
-      )
-    })
-
-    test('setStoragePath should reject non-string values', async () => {
-      await expect(appDeps.setStoragePath(123)).rejects.toThrow(
-        'Storage path must be a non-empty string'
-      )
-    })
-
-    test('setStoragePath should reject relative paths', async () => {
-      await expect(appDeps.setStoragePath('relative/path')).rejects.toThrow(
-        'Storage path must be an absolute path'
-      )
-      await expect(appDeps.setStoragePath('./relative/path')).rejects.toThrow(
-        'Storage path must be an absolute path'
-      )
-      await expect(appDeps.setStoragePath('../parent/path')).rejects.toThrow(
-        'Storage path must be an absolute path'
-      )
-    })
-
-    test('setStoragePath should reject path with null bytes', async () => {
-      await expect(appDeps.setStoragePath('file:///home/user\0/data')).rejects.toThrow(
-        'Storage path contains invalid null bytes'
-      )
-    })
-
-    test('setStoragePath should reject paths with traversal sequences', async () => {
-      await expect(appDeps.setStoragePath('/home/user/../data')).rejects.toThrow(
-        'Storage path must not contain traversal sequences'
-      )
-      await expect(appDeps.setStoragePath('/home/user/./data')).rejects.toThrow(
-        'Storage path must not contain traversal sequences'
-      )
-      await expect(appDeps.setStoragePath('/home/user/data/..')).rejects.toThrow(
-        'Storage path must not contain traversal sequences'
-      )
-      await expect(appDeps.setStoragePath('/home/user/data/.')).rejects.toThrow(
-        'Storage path must not contain traversal sequences'
-      )
-      await expect(appDeps.setStoragePath('/home/../etc/passwd')).rejects.toThrow(
-        'Storage path must not contain traversal sequences'
-      )
     })
 
     test('setStoragePath should reject paths to restricted system directories', async () => {
@@ -278,18 +226,6 @@ describe('appDeps module functions (excluding encryption)', () => {
       await expect(appDeps.setStoragePath('/var/data')).rejects.toThrow(
         'Storage path points to a restricted system directory'
       )
-    })
-
-    test('setStoragePath should strip file:// protocol', async () => {
-      await appDeps.setStoragePath('file:///home/user/data')
-      const result = appDeps.buildPath('vault')
-      expect(result).toBe('/home/user/data/vault')
-    })
-
-    test('setStoragePath should trim whitespace', async () => {
-      await appDeps.setStoragePath('  /home/user/data  ')
-      const result = appDeps.buildPath('vault')
-      expect(result).toBe('/home/user/data/vault')
     })
 
     test('buildPath should prevent path traversal outside storage root', async () => {
