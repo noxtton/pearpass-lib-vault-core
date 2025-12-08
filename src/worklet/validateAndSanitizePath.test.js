@@ -1,3 +1,4 @@
+// validateAndSanitizePath.test.js
 import barePath from 'bare-path'
 
 import { validateAndSanitizePath } from './validateAndSanitizePath'
@@ -85,10 +86,16 @@ describe('validateAndSanitizePath', () => {
     )
   })
 
-  it('should throw if path contains hidden file/directory sequence (/.)', () => {
+  it('should throw if path contains non-whitelisted hidden file/directory (.hidden)', () => {
     expect(() => validateAndSanitizePath('/path/.hidden')).toThrow(
       'Storage path must not contain traversal sequences (. or ..)'
     )
+  })
+
+  it('should allow whitelisted .config directory', () => {
+    barePath.normalize.mockReturnValue('/home/username/.config/pear/app-storage/by-random/3892582d20dcf4f12ffa24730bb406bb')
+    const result = validateAndSanitizePath('/home/username/.config/pear/app-storage/by-random/3892582d20dcf4f12ffa24730bb406bb')
+    expect(result).toBe('/home/username/.config/pear/app-storage/by-random/3892582d20dcf4f12ffa24730bb406bb')
   })
 
   it('should return a valid absolute path correctly', () => {
@@ -103,4 +110,5 @@ describe('validateAndSanitizePath', () => {
     expect(result).toBe('/normalized/path')
     expect(barePath.normalize).toHaveBeenCalledWith('/normalized/path/')
   })
+
 })

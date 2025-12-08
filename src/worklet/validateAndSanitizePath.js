@@ -1,4 +1,7 @@
+// validateAndSanitizePath.js
 import barePath from 'bare-path'
+
+const WHITELISTED_DOT_DIRS = ['.config']
 
 /**
  * Validates and sanitizes a storage path
@@ -34,15 +37,22 @@ export const validateAndSanitizePath = (rawPath) => {
     throw new Error('Storage path must be an absolute path')
   }
 
-  // Reject any path containing traversal sequences
-  if (
-    cleanPath.includes('..') ||
-    cleanPath.includes('./') ||
-    cleanPath.includes('/.')
-  ) {
+  // Reject any path containing traversal sequences, except whitelisted dot directories
+  if (cleanPath.includes('..') || cleanPath.includes('./')) {
     throw new Error(
       'Storage path must not contain traversal sequences (. or ..)'
     )
+  }
+  
+  // Check for other dot sequences that aren't whitelisted
+  const dotPattern = /\/\.([^/]+)/g
+  const matches = [...cleanPath.matchAll(dotPattern)]
+  for (const match of matches) {
+    if (!WHITELISTED_DOT_DIRS.includes(`.${match[1]}`)) {
+      throw new Error(
+        'Storage path must not contain traversal sequences (. or ..)'
+      )
+    }
   }
 
   // Normalize path to remove redundant slashes and trailing slashes
