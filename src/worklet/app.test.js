@@ -60,11 +60,12 @@ describe('app.js', () => {
   })
 
   it('should handle import failure gracefully', async () => {
-    jest.isolateModules(async () => {
+    await jest.isolateModulesAsync(async () => {
       jest.doMock('./appCore.js', () => {
         throw new Error('Import failed')
       })
 
+      await import('./app')
       await new Promise((resolve) => setTimeout(resolve, 100))
 
       expect(workletLogger.error).toHaveBeenCalled()
