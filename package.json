@@ -10,7 +10,6 @@
     "test": "jest"
   },
   "dependencies": {
-    "@tetherto/swarmconf": "git+https://github.com/tetherto/tether-hp-conf-swarm.git",
     "autopass": "^3.1.5",
     "hyperswarm": "^4.16.0",
     "bare-buffer": "^3.4.2",
@@ -38,5 +37,8 @@
   "peerDependencies": {
     "pear-apps-utils-validator": "0.0.x",
     "tether-dev-docs": "0.0.x"
+  },
+  "optionalDependencies": {
+    "@tetherto/swarmconf": "git+https://github.com/tetherto/tether-hp-conf-swarm.git"
   }
 }

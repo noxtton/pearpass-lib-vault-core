@@ -1,5 +1,5 @@
 /** @typedef {import('bare')} */ /* global Bare */
-import Swarmconf from '@tetherto/swarmconf'
+import { getConfig } from './utils/swarm'
 import Autopass from 'autopass'
 import barePath from 'bare-path'
 import Corestore from 'corestore'
@@ -203,8 +203,7 @@ export const initInstance = async (
       throw new Error('Error creating store')
     }
 
-    const conf = new Swarmconf(store)
-    await conf.ready()
+    const conf = await getConfig(store)
 
     const instance = new Autopass(store, {
       encryptionKey: encryptionKey
