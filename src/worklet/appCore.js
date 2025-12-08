@@ -65,7 +65,7 @@ export const handleRpcCommand = async (req, isExtension = false) => {
   switch (req.command) {
     case API.STORAGE_PATH_SET:
       try {
-        setStoragePath(requestData?.path)
+        void setStoragePath(requestData?.path)
 
         req.reply(JSON.stringify({ success: true }))
       } catch (error) {

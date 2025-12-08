@@ -119,7 +119,41 @@ jest.mock('bare-rpc', () =>
 )
 
 jest.mock('bare-path', () => ({
-  join: (...args) => args.join('/')
+  sep: '/', // Unix path separator for tests
+  join: (...args) => args.join('/'),
+  normalize: (path) => {
+    // Simple normalization: remove trailing slashes and redundant slashes
+    const result = path.replace(/\/+/g, '/').replace(/\/$/, '') || '/'
+    // Handle .. for normalization
+    const parts = result.split('/')
+    const normalized = []
+    for (const part of parts) {
+      if (part === '..') {
+        normalized.pop()
+      } else if (part !== '.' && part !== '') {
+        normalized.push(part)
+      }
+    }
+    return '/' + normalized.join('/')
+  },
+  resolve: (...paths) => {
+    // Simple resolve: join paths and make absolute, handle ..
+    let joined = paths.join('/').replace(/\/+/g, '/')
+    if (!joined.startsWith('/')) {
+      joined = '/' + joined
+    }
+    // Handle .. for resolution
+    const parts = joined.split('/')
+    const resolved = []
+    for (const part of parts) {
+      if (part === '..') {
+        resolved.pop()
+      } else if (part !== '.' && part !== '') {
+        resolved.push(part)
+      }
+    }
+    return '/' + resolved.join('/')
+  }
 }))
 
 jest.mock('@tetherto/swarmconf', () =>
@@ -134,6 +168,19 @@ jest.mock('@tetherto/swarmconf', () =>
 jest.mock('./utils/isPearWorker', () => ({
   isPearWorker: jest.fn().mockReturnValue(false)
 }))
+
+jest.mock('./validateAndSanitizePath', () => ({
+  validateAndSanitizePath: jest.fn().mockImplementation((path) => path)
+}))
+
+jest.mock('./getForbiddenRoots', () => ({
+  getForbiddenRoots: jest.fn().mockReturnValue(['/etc', '/bin', '/tmp', '/var'])
+}))
+
+// Mock Bare global for platform detection
+global.Bare = {
+  platform: 'posix' // Unix-like for tests
+}
 
 import * as appDeps from './appDeps'
 
@@ -150,9 +197,49 @@ describe('appDeps module functions (excluding encryption)', () => {
     })
 
     test('buildPath returns expected path after setStoragePath', async () => {
-      await appDeps.setStoragePath('file://base')
+      await appDeps.setStoragePath('/home/user/data')
       const result = appDeps.buildPath('vault/test')
-      expect(result).toBe('base/vault/test')
+      expect(result).toBe('/home/user/data/vault/test')
+    })
+
+    test('setStoragePath should reject paths to restricted system directories', async () => {
+      await expect(appDeps.setStoragePath('/etc')).rejects.toThrow(
+        'Storage path points to a restricted system directory'
+      )
+      await expect(appDeps.setStoragePath('/etc/config')).rejects.toThrow(
+        'Storage path points to a restricted system directory'
+      )
+      await expect(appDeps.setStoragePath('/bin/sh')).rejects.toThrow(
+        'Storage path points to a restricted system directory'
+      )
+      // /tmp is inappropriate for permanent vault storage (files deleted on reboot)
+      await expect(appDeps.setStoragePath('/tmp')).rejects.toThrow(
+        'Storage path points to a restricted system directory'
+      )
+      await expect(appDeps.setStoragePath('/tmp/vaults')).rejects.toThrow(
+        'Storage path points to a restricted system directory'
+      )
+      // /var is a system directory with critical subdirectories
+      await expect(appDeps.setStoragePath('/var')).rejects.toThrow(
+        'Storage path points to a restricted system directory'
+      )
+      await expect(appDeps.setStoragePath('/var/data')).rejects.toThrow(
+        'Storage path points to a restricted system directory'
+      )
+    })
+
+    test('buildPath should prevent path traversal outside storage root', async () => {
+      await appDeps.setStoragePath('/home/user/data')
+      // This should throw because the resolved path would escape the storage root
+      expect(() => appDeps.buildPath('../../../etc/passwd')).toThrow(
+        'Resolved path escapes storage root'
+      )
+    })
+
+    test('buildPath should allow normal subdirectories', async () => {
+      await appDeps.setStoragePath('/home/user/data')
+      const result = appDeps.buildPath('vault/subfolder/file')
+      expect(result).toBe('/home/user/data/vault/subfolder/file')
     })
   })
 
@@ -179,13 +266,13 @@ describe('appDeps module functions (excluding encryption)', () => {
     })
 
     test('vaultsInit sets vaultsInitialized to true', async () => {
-      await appDeps.setStoragePath('file://base')
+      await appDeps.setStoragePath('/home/testuser/vaultdata')
       await appDeps.vaultsInit('any-password')
       expect(appDeps.getIsVaultsInitialized()).toBe(true)
     })
 
     test('closeVaultsInstance resets vaultsInitialized to false', async () => {
-      await appDeps.setStoragePath('file://base')
+      await appDeps.setStoragePath('/home/testuser/vaultdata')
       await appDeps.vaultsInit('any-password')
       expect(appDeps.getIsVaultsInitialized()).toBe(true)
       await appDeps.closeVaultsInstance()
@@ -217,13 +304,13 @@ describe('appDeps module functions (excluding encryption)', () => {
     })
 
     test('initActiveVaultInstance sets active vault as initialized', async () => {
-      await appDeps.setStoragePath('file://base')
+      await appDeps.setStoragePath('/home/testuser/vaultdata')
       await appDeps.initActiveVaultInstance('vault1', 'password')
       expect(appDeps.getIsActiveVaultInitialized()).toBe(true)
     })
 
     test('closeActiveVaultInstance resets active vault initialization', async () => {
-      await appDeps.setStoragePath('file://base')
+      await appDeps.setStoragePath('/home/testuser/vaultdata')
       await appDeps.initActiveVaultInstance('vault1')
       expect(appDeps.getIsActiveVaultInitialized()).toBe(true)
       await appDeps.closeActiveVaultInstance()
@@ -231,7 +318,7 @@ describe('appDeps module functions (excluding encryption)', () => {
     })
 
     test('activeVaultAdd calls add on activeVaultInstance', async () => {
-      await appDeps.setStoragePath('file://base')
+      await appDeps.setStoragePath('/home/testuser/vaultdata')
       await appDeps.initActiveVaultInstance('vault1')
 
       const mockInstance = await appDeps.getActiveVaultInstance()
@@ -247,7 +334,7 @@ describe('appDeps module functions (excluding encryption)', () => {
     })
 
     test('vaultsGet calls get on vaultInstance and returns result', async () => {
-      await appDeps.setStoragePath('file://base')
+      await appDeps.setStoragePath('/home/testuser/vaultdata')
       await appDeps.vaultsInit('vault1')
       const result = await appDeps.vaultsGet('key4')
       expect(result.id).toEqual('vault-id')
@@ -255,7 +342,7 @@ describe('appDeps module functions (excluding encryption)', () => {
     })
 
     test('vaultsAdd calls add on vaultsInstance', async () => {
-      await appDeps.setStoragePath('file://base')
+      await appDeps.setStoragePath('/home/testuser/vaultdata')
       await appDeps.vaultsInit('any-password')
 
       const mockInstance = await appDeps.getVaultsInstance()
@@ -270,7 +357,7 @@ describe('appDeps module functions (excluding encryption)', () => {
     })
 
     test('vaultRemove calls remove on activeVaultInstance', async () => {
-      await appDeps.setStoragePath('file://base')
+      await appDeps.setStoragePath('/home/testuser/vaultdata')
       await appDeps.initActiveVaultInstance('vault1')
 
       const mockInstance = await appDeps.getActiveVaultInstance()
@@ -282,7 +369,7 @@ describe('appDeps module functions (excluding encryption)', () => {
     })
 
     test('activeVaultGet calls get on activeVaultInstance and returns result', async () => {
-      await appDeps.setStoragePath('file://base')
+      await appDeps.setStoragePath('/home/testuser/vaultdata')
       await appDeps.initActiveVaultInstance('vault1')
       const result = await appDeps.activeVaultGet('key4')
       expect(result.id).toEqual('vault-id')
@@ -290,7 +377,7 @@ describe('appDeps module functions (excluding encryption)', () => {
     })
 
     test('createInvite returns correct invite string', async () => {
-      await appDeps.setStoragePath('file://base')
+      await appDeps.setStoragePath('/home/testuser/vaultdata')
       await appDeps.initActiveVaultInstance('vault1')
       const result = await appDeps.createInvite()
       expect(result).toBe('vault-id/invite-code')
@@ -315,7 +402,7 @@ describe('appDeps module functions (excluding encryption)', () => {
 
     test('vaultsList returns filtered values based on filterKey', async () => {
       jest.spyOn(appDeps, 'initInstance').mockResolvedValue(fakeListInstance)
-      await appDeps.setStoragePath('file://base')
+      await appDeps.setStoragePath('/home/testuser/vaultdata')
       await appDeps.vaultsInit('any-password')
       const result = await appDeps.vaultsList('test')
       expect(result).toEqual([1, 3])
@@ -324,7 +411,7 @@ describe('appDeps module functions (excluding encryption)', () => {
 
     test('activeVaultList returns filtered values based on filterKey', async () => {
       jest.spyOn(appDeps, 'initInstance').mockResolvedValue(fakeListInstance)
-      await appDeps.setStoragePath('file://base')
+      await appDeps.setStoragePath('/home/testuser/vaultdata')
       await appDeps.initActiveVaultInstance('vault1')
       const result = await appDeps.activeVaultList('test')
       expect(result).toEqual([1, 3])
@@ -334,7 +421,7 @@ describe('appDeps module functions (excluding encryption)', () => {
 
   describe('Pairing functions', () => {
     test('pair calls pair with invite code and returns vault id', async () => {
-      await appDeps.setStoragePath('file://base')
+      await appDeps.setStoragePath('/home/testuser/vaultdata')
       await appDeps.vaultsInit('any-password')
       const { vaultId, encryptionKey } = await appDeps.pairActiveVault(
         'vault-id/invite-code'
@@ -350,7 +437,7 @@ describe('appDeps module functions (excluding encryption)', () => {
         ready: jest.fn().mockResolvedValue(),
         close: jest.fn().mockResolvedValue()
       })
-      await appDeps.setStoragePath('file://base')
+      await appDeps.setStoragePath('/home/testuser/vaultdata')
       await appDeps.initActiveVaultInstance('vault1')
 
       const inst = appDeps.getActiveVaultInstance()
@@ -409,7 +496,7 @@ describe('appDeps module functions (excluding encryption)', () => {
         on: jest.fn()
       })
 
-      await appDeps.setStoragePath('file://base')
+      await appDeps.setStoragePath('/home/testuser/vaultdata')
       await appDeps.initActiveVaultInstance('vaultX', 'encKey')
 
       const onUpdate = jest.fn()
@@ -420,7 +507,7 @@ describe('appDeps module functions (excluding encryption)', () => {
     })
 
     test('throws if no previous vault to restart', async () => {
-      await appDeps.setStoragePath('file://base')
+      await appDeps.setStoragePath('/home/testuser/vaultdata')
       await appDeps.closeAllInstances()
       await expect(appDeps.restartActiveVault()).rejects.toThrow(
         '[restartActiveVault]: No previous active vault to restart'
@@ -429,7 +516,7 @@ describe('appDeps module functions (excluding encryption)', () => {
   })
   describe('initListener', () => {
     test('initListener should not reinitialize if vaultId matches previous value', async () => {
-      await appDeps.setStoragePath('file://base')
+      await appDeps.setStoragePath('/home/testuser/vaultdata')
       await appDeps.initActiveVaultInstance('vault1')
 
       const active = appDeps.getActiveVaultInstance()
@@ -455,7 +542,7 @@ describe('appDeps module functions (excluding encryption)', () => {
       )
     })
     test('closeAllInstances closes all initialized instances and clears restart cache', async () => {
-      await appDeps.setStoragePath('file://base')
+      await appDeps.setStoragePath('/home/testuser/vaultdata')
       await appDeps.initActiveVaultInstance('vault1')
       await appDeps.vaultsInit('vault1')
       await appDeps.encryptionInit('vault1')

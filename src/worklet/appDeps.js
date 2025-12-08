@@ -1,12 +1,14 @@
+/** @typedef {import('bare')} */ /* global Bare */
 import Swarmconf from '@tetherto/swarmconf'
 import Autopass from 'autopass'
 import barePath from 'bare-path'
 import Corestore from 'corestore'
 
+import { getForbiddenRoots } from './getForbiddenRoots'
 import { PearPassPairer } from './pearpassPairer'
 import { RateLimiter } from './rateLimiter'
+import { validateAndSanitizePath } from './validateAndSanitizePath'
 import { defaultMirrorKeys } from '../constants/defaultBlindMirrors'
-import { isPearWorker } from './utils/isPearWorker'
 
 let STORAGE_PATH = null
 
@@ -32,9 +34,29 @@ const rateLimiter = new RateLimiter()
  * @returns {Promise<void>}
  * */
 export const setStoragePath = async (path) => {
-  STORAGE_PATH = isPearWorker()
-    ? path
-    : path.substring('file://'.length, path.length)
+  const sanitizedPath = validateAndSanitizePath(path)
+
+  // Block access to restricted system directories
+  const forbiddenRoots = getForbiddenRoots()
+  const isWindows = Bare.platform === 'win32'
+
+  for (const root of forbiddenRoots) {
+    // Windows paths are case-insensitive
+    const normalizedRoot = isWindows ? root.toLowerCase() : root
+    const normalizedPath = isWindows
+      ? sanitizedPath.toLowerCase()
+      : sanitizedPath
+    const separator = isWindows ? '\\' : '/'
+
+    if (
+      normalizedPath === normalizedRoot ||
+      normalizedPath.startsWith(normalizedRoot + separator)
+    ) {
+      throw new Error('Storage path points to a restricted system directory')
+    }
+  }
+
+  STORAGE_PATH = sanitizedPath
 }
 
 /**
@@ -142,7 +164,23 @@ export const buildPath = (path) => {
     throw new Error('Storage path not set')
   }
 
-  return barePath.join(STORAGE_PATH, path)
+  // Join and resolve the path (handles traversal sequences like ..)
+  const resolved = barePath.join(STORAGE_PATH, path)
+
+  // Normalize both paths for comparison (handles trailing slashes, etc.)
+  const normalizedRoot = barePath.normalize(STORAGE_PATH)
+  const normalizedResolved = barePath.normalize(resolved)
+
+  // Ensure the resolved path is within the storage root
+  // Allow exact match or subdirectories
+  if (
+    normalizedResolved !== normalizedRoot &&
+    !normalizedResolved.startsWith(normalizedRoot + barePath.sep)
+  ) {
+    throw new Error('Resolved path escapes storage root')
+  }
+
+  return normalizedResolved
 }
 
 /**

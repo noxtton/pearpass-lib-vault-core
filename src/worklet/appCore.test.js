@@ -339,6 +339,7 @@ describe('handleRpcCommand', () => {
 
   test('STORAGE_PATH_SET: success path', async () => {
     parseRequestData.mockReturnValue({ path: '/test/path' })
+    mockSetStoragePath.mockResolvedValue()
 
     const reply = jest.fn()
     const req = {
