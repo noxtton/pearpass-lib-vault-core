@@ -93,9 +93,15 @@ describe('validateAndSanitizePath', () => {
   })
 
   it('should allow whitelisted .config directory', () => {
-    barePath.normalize.mockReturnValue('/home/username/.config/pear/app-storage/by-random/3892582d20dcf4f12ffa24730bb406bb')
-    const result = validateAndSanitizePath('/home/username/.config/pear/app-storage/by-random/3892582d20dcf4f12ffa24730bb406bb')
-    expect(result).toBe('/home/username/.config/pear/app-storage/by-random/3892582d20dcf4f12ffa24730bb406bb')
+    barePath.normalize.mockReturnValue(
+      '/home/username/.config/pear/app-storage/by-random/3892582d20dcf4f12ffa24730bb406bb'
+    )
+    const result = validateAndSanitizePath(
+      '/home/username/.config/pear/app-storage/by-random/3892582d20dcf4f12ffa24730bb406bb'
+    )
+    expect(result).toBe(
+      '/home/username/.config/pear/app-storage/by-random/3892582d20dcf4f12ffa24730bb406bb'
+    )
   })
 
   it('should return a valid absolute path correctly', () => {
@@ -110,5 +116,4 @@ describe('validateAndSanitizePath', () => {
     expect(result).toBe('/normalized/path')
     expect(barePath.normalize).toHaveBeenCalledWith('/normalized/path/')
   })
-
 })

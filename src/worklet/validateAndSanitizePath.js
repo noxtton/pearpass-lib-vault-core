@@ -43,7 +43,7 @@ export const validateAndSanitizePath = (rawPath) => {
       'Storage path must not contain traversal sequences (. or ..)'
     )
   }
-  
+
   // Check for other dot sequences that aren't whitelisted
   const dotPattern = /\/\.([^/]+)/g
   const matches = [...cleanPath.matchAll(dotPattern)]

@@ -1,5 +1,4 @@
 /** @typedef {import('bare')} */ /* global Bare */
-import Swarmconf from '@tetherto/swarmconf'
 import Autopass from 'autopass'
 import barePath from 'bare-path'
 import Corestore from 'corestore'
@@ -7,6 +6,7 @@ import Corestore from 'corestore'
 import { getForbiddenRoots } from './getForbiddenRoots'
 import { PearPassPairer } from './pearpassPairer'
 import { RateLimiter } from './rateLimiter'
+import { getConfig } from './utils/swarm'
 import { validateAndSanitizePath } from './validateAndSanitizePath'
 import { defaultMirrorKeys } from '../constants/defaultBlindMirrors'
 
@@ -203,8 +203,7 @@ export const initInstance = async (
       throw new Error('Error creating store')
     }
 
-    const conf = new Swarmconf(store)
-    await conf.ready()
+    const conf = await getConfig(store)
 
     const instance = new Autopass(store, {
       encryptionKey: encryptionKey

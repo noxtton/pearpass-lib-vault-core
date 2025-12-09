@@ -1,4 +1,4 @@
-import Swarmconf from '@tetherto/swarmconf'
+import { getConfig } from './utils/swarm'
 import Autopass from 'autopass'
 import Corestore from 'corestore'
 
@@ -22,8 +22,7 @@ export class PearPassPairer {
         throw new Error('Error creating store')
       }
 
-      const conf = new Swarmconf(this.store)
-      await conf.ready()
+      const conf = await getConfig(this.store)
 
       this.pair = Autopass.pair(this.store, invite, {
         relayThrough: conf.current.blindRelays
