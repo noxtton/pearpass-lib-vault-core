@@ -452,7 +452,10 @@ describe('appDeps module functions (excluding encryption)', () => {
 
     test('getBlindMirrors returns mirrors from instance', async () => {
       const res = await appDeps.getBlindMirrors()
-      expect(res).toEqual([{ key: 'a', isDefault: false }, { key: 'b', isDefault: false }])
+      expect(res).toEqual([
+        { key: 'a', isDefault: false },
+        { key: 'b', isDefault: false }
+      ])
     })
 
     test('addBlindMirrors adds provided keys', async () => {

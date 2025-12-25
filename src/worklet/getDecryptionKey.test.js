@@ -47,7 +47,7 @@ describe('getDecryptionKey', () => {
     )
     expect(sodium.crypto_pwhash).toHaveBeenCalledWith(
       expect.any(Buffer),
-      Buffer.from(password),
+      expect.any(Buffer),
       Buffer.from(salt, 'base64'),
       sodium.crypto_pwhash_OPSLIMIT_SENSITIVE,
       sodium.crypto_pwhash_MEMLIMIT_INTERACTIVE,

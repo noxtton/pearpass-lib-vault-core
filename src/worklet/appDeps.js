@@ -654,7 +654,11 @@ export const getBlindMirrors = async () => {
 
     return enrichedMirrors
   } catch (error) {
-    throw new Error(`[getBlindMirrors]: Failed to get mirror metadata: ${error?.message || 'Unexpected error'}`)
+    throw new Error(
+      `[getBlindMirrors]: Failed to get mirror metadata: ${
+        error?.message || 'Unexpected error'
+      }`
+    )
   }
 }
 
